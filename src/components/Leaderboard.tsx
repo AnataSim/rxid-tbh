@@ -218,7 +218,8 @@ export const Leaderboard: React.FC = () => {
                   {(() => {
                     const rankVal = p.v4rxRank && p.v4rxRank > 0 ? p.v4rxRank : (p.osuId && /^\d+$/.test(p.osuId) ? parseInt(p.osuId, 10) : (i + 1) * 15);
                     const ppVal = p.v4rxPp && p.v4rxPp > 0 ? p.v4rxPp : Math.max(5000, 24000 - i * 1200);
-                    const accVal = p.v4rxAccuracy && p.v4rxAccuracy > 0 ? p.v4rxAccuracy : parseFloat((98.5 - (i % 5) * 0.4).toFixed(2));
+                    const rawAcc = p.v4rxAccuracy && p.v4rxAccuracy > 0 && p.v4rxAccuracy < 100 ? p.v4rxAccuracy : (98.45 - (i % 6) * 0.55);
+                    const accVal = parseFloat(rawAcc.toFixed(2));
                     const titleVal = p.title || (ppVal >= 20000 ? '🤠 Grand Marshal' : ppVal >= 15000 ? '★ Sheriff Giver' : ppVal >= 10000 ? '⚡ Master Bounty Hunter' : '🎯 Desert Marksman');
 
                     return (

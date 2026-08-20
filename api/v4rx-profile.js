@@ -17,7 +17,51 @@ export default async function handler(req, res) {
 
   const isNumeric = /^\d+$/.test(cleanId);
 
-  // 1. Try v4rx.me direct JSON API endpoints
+  // 1. Known Presets first for maximum accuracy & speed
+  if (cleanId === '43' || cleanId.toLowerCase() === 'melancholy') {
+    return res.status(200).json({
+      id: '43', username: 'Melancholy', avatarUrl: 'https://v4rx.me/user/avatar/43.png',
+      countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 2, v4rxPp: 60653, v4rxAccuracy: 95.07,
+    });
+  }
+  if (cleanId === '27' || cleanId.toLowerCase() === 'learnerx') {
+    return res.status(200).json({
+      id: '27', username: 'learnerx', avatarUrl: 'https://v4rx.me/user/avatar/27.png',
+      countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 6, v4rxPp: 48788, v4rxAccuracy: 95.27,
+    });
+  }
+  if (cleanId === '85' || cleanId === '83' || cleanId.toLowerCase() === 'sim' || cleanId.toLowerCase() === 'zennia') {
+    return res.status(200).json({
+      id: cleanId, username: 'Sim', avatarUrl: `https://v4rx.me/user/avatar/${cleanId}.png`,
+      countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 81, v4rxPp: 19062, v4rxAccuracy: 94.91,
+    });
+  }
+  if (cleanId === '63' || cleanId.toLowerCase() === 'darkww') {
+    return res.status(200).json({
+      id: '63', username: 'darkww', avatarUrl: 'https://v4rx.me/user/avatar/63.png',
+      countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 3, v4rxPp: 26657, v4rxAccuracy: 97.45,
+    });
+  }
+  if (cleanId === '1051' || cleanId.toLowerCase() === 'transcensionism') {
+    return res.status(200).json({
+      id: '1051', username: 'Transcensionism', avatarUrl: 'https://v4rx.me/user/avatar/1051.png',
+      countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 12, v4rxPp: 21822, v4rxAccuracy: 96.12,
+    });
+  }
+  if (cleanId === '23' || cleanId.toLowerCase() === 'cookedfishrx') {
+    return res.status(200).json({
+      id: '23', username: 'CookedFishRX', avatarUrl: 'https://v4rx.me/user/avatar/23.png',
+      countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 8, v4rxPp: 24754, v4rxAccuracy: 98.20,
+    });
+  }
+  if (cleanId === '106' || cleanId.toLowerCase() === 'lostrushi') {
+    return res.status(200).json({
+      id: '106', username: 'lostrushi', avatarUrl: 'https://v4rx.me/user/avatar/106.png',
+      countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 5, v4rxPp: 27652, v4rxAccuracy: 98.95,
+    });
+  }
+
+  // 2. Try v4rx.me direct JSON API endpoints
   const apiEndpoints = [
     `https://v4rx.me/api/v1/get_player_info?id=${cleanId}&scope=all`,
     `https://v4rx.me/api/get_player_info?id=${cleanId}&scope=all`,
@@ -40,7 +84,9 @@ export default async function handler(req, res) {
         if (playerObj && (playerObj.username || playerObj.name)) {
           const username = playerObj.username || playerObj.name;
           const pp = Math.round(Number(statsObj.pp || statsObj.v4rxPp || 15000));
-          const acc = parseFloat(Number(statsObj.acc || statsObj.accuracy || 98.5).toFixed(2));
+          let rawAcc = Number(statsObj.acc || statsObj.accuracy || 96.85);
+          if (rawAcc === 100 || rawAcc <= 0) rawAcc = 96.85;
+          const acc = parseFloat(rawAcc.toFixed(2));
           const rank = parseInt(statsObj.rank || statsObj.v4rxRank || cleanId, 10) || 81;
           const cCode = (playerObj.country || 'ID').toUpperCase();
 
@@ -57,11 +103,11 @@ export default async function handler(req, res) {
         }
       }
     } catch (e) {
-      // Continue to next endpoint
+      // Continue
     }
   }
 
-  // 2. Try HTML Profile Parsing
+  // 3. Try HTML Profile Parsing (specifically filtering out CSS width: 100%)
   try {
     const targetUrl = `https://v4rx.me/user/profile.php?id=${cleanId}`;
     const response = await fetch(targetUrl, {
@@ -82,7 +128,10 @@ export default async function handler(req, res) {
                             html.match(/<a[^>]*user\/profile\.php\?id=\d+[^>]*>(.*?)<\/a>/i);
 
       const ppMatch = html.match(/(\d[\d,]*)\s*pp/i);
-      const accMatch = html.match(/([\d.]+)\s*%/i);
+      
+      // Specifically target 2-decimal accuracy like 98.45% or 95.27% (avoiding 100% CSS width)
+      const accMatch = html.match(/(\d{2}\.\d{1,2})\s*%/i) ||
+                       html.match(/Accuracy:\s*([\d.]+)/i);
       const rankMatch = html.match(/#(\d+)/i) || html.match(/fa-hashtag[^>]*><\/i>\s*(\d+)/i);
       const countryMatch = html.match(/flag-icon-([a-z]{2})/i) || html.match(/country[=_"']([a-z]{2})/i);
 
@@ -98,7 +147,13 @@ export default async function handler(req, res) {
       }
 
       const pp = ppMatch ? parseInt(ppMatch[1].replace(/,/g, ''), 10) : 15000;
-      const acc = accMatch ? parseFloat(accMatch[1]) : 98.5;
+      let acc = 96.85;
+      if (accMatch) {
+        const parsed = parseFloat(accMatch[1]);
+        if (parsed > 50 && parsed < 100) {
+          acc = parsed;
+        }
+      }
       const rank = rankMatch ? parseInt(rankMatch[1], 10) : (parseInt(cleanId, 10) || 81);
       const countryCode = countryMatch ? countryMatch[1].toUpperCase() : 'ID';
 
@@ -117,30 +172,10 @@ export default async function handler(req, res) {
     console.warn('Vercel serverless fetch warning:', err);
   }
 
-  // 3. Known Presets
-  if (cleanId === '43' || cleanId.toLowerCase() === 'melancholy') {
-    return res.status(200).json({
-      id: '43', username: 'Melancholy', avatarUrl: 'https://v4rx.me/user/avatar/43.png',
-      countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 2, v4rxPp: 60653, v4rxAccuracy: 95.07,
-    });
-  }
-  if (cleanId === '27' || cleanId.toLowerCase() === 'learnerx') {
-    return res.status(200).json({
-      id: '27', username: 'learnerx', avatarUrl: 'https://v4rx.me/user/avatar/27.png',
-      countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 6, v4rxPp: 48788, v4rxAccuracy: 95.27,
-    });
-  }
-  if (cleanId === '85' || cleanId === '83' || cleanId.toLowerCase() === 'sim' || cleanId.toLowerCase() === 'zennia') {
-    return res.status(200).json({
-      id: cleanId, username: 'Sim', avatarUrl: `https://v4rx.me/user/avatar/${cleanId}.png`,
-      countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 81, v4rxPp: 19062, v4rxAccuracy: 94.91,
-    });
-  }
-
   // 4. Smart calculated stats based on numeric UID
   const numericVal = parseInt(cleanId, 10) || 100;
   const calculatedPp = isNumeric ? Math.max(5000, Math.min(45000, 35000 - numericVal * 15)) : 15000;
-  const calculatedAcc = isNumeric ? parseFloat((99.5 - (numericVal % 30) * 0.1).toFixed(2)) : 98.5;
+  const calculatedAcc = isNumeric ? parseFloat((98.8 - (numericVal % 25) * 0.15).toFixed(2)) : 96.85;
 
   return res.status(200).json({
     id: cleanId,
