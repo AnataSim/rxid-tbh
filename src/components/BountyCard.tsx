@@ -41,17 +41,7 @@ export const BountyCard: React.FC<BountyCardProps> = ({ bounty, onSelect }) => {
           </span>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {skillsets.slice(0, 2).map((skill, idx) => (
-              <span key={idx} className="label label-skillset" style={{
-                fontSize: 9,
-                fontWeight: 700,
-                padding: '2px 6px',
-                borderRadius: 5,
-                background: 'rgba(255, 77, 141, 0.2)',
-                border: '1px solid rgba(255, 77, 141, 0.45)',
-                color: '#ff4d8d',
-                backdropFilter: 'blur(4px)',
-                letterSpacing: '0.2px',
-              }}>
+              <span key={idx} className="label label-skillset">
                 {skill}
               </span>
             ))}

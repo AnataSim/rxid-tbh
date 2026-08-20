@@ -520,8 +520,10 @@ input, textarea, select { font-family: inherit; }
   padding: 2px 7px; border-radius: 4px;
   font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
 }
-.label-ranked  { background: #1d3faa; color: #93b4ff; }
-.label-loved   { background: #6b1454; color: #f472b6; }
+.label-ranked   { background: #1d3faa; color: #93b4ff; }
+.label-loved    { background: #6b1454; color: #f472b6; }
+.label-graveyard{ background: #27272a; color: #a1a1aa; }
+.label-skillset { background: #581c87; color: #d8b4fe; }
 .label-tag     { background: rgba(0,0,0,0.55); color: var(--text-2); border: 1px solid rgba(255,255,255,0.08); backdrop-filter: blur(6px); }
 .label-open    { background: var(--green-dim); color: var(--green); }
 .label-done    { background: var(--gold-dim); color: var(--gold); }
