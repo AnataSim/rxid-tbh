@@ -1,8 +1,8 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { collection, query, orderBy, limit, getDocs, deleteDoc, setDoc, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { User } from '../types/bounty';
-import { Trophy, Coins, Target, Star, Zap, Loader2 } from 'lucide-react';
+import { Trophy, Coins, Target, Star, Zap, Loader2, RotateCw } from 'lucide-react';
 import { normalizeAvatarUrl } from '../services/authService';
 import { CowboyRankSquareFrame } from './CowboyRankBadge';
 import { fetchV4rxProfile } from '../services/osuApi';
@@ -10,90 +10,100 @@ import { fetchV4rxProfile } from '../services/osuApi';
 export const Leaderboard: React.FC = () => {
   const [players, setPlayers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const q = query(
-          collection(db, 'users'),
-          orderBy('bountyPoints', 'desc'),
-          limit(50)
-        );
-        const snap = await getDocs(q);
-        const docs = snap.docs.map(d => ({ docId: d.id, data: d.data() as User }));
+  const loadLeaderboardData = useCallback(async () => {
+    try {
+      const q = query(
+        collection(db, 'users'),
+        orderBy('bountyPoints', 'desc'),
+        limit(50)
+      );
+      const snap = await getDocs(q);
+      const docs = snap.docs.map(d => ({ docId: d.id, data: d.data() as User }));
 
-        // Auto-clean duplicate docs in Firestore with identical username
-        const seenNames = new Set<string>();
-        const cleanList: User[] = [];
-        for (const item of docs) {
-          const name = (item.data.username || '').trim().toLowerCase();
-          if (name) {
-            if (seenNames.has(name)) {
-              // Delete duplicate document from Firestore
-              deleteDoc(doc(db, 'users', item.docId)).catch(() => {});
-            } else {
-              seenNames.add(name);
-              cleanList.push(item.data);
-            }
+      // Auto-clean duplicate docs in Firestore with identical username
+      const seenNames = new Set<string>();
+      const cleanList: User[] = [];
+      for (const item of docs) {
+        const name = (item.data.username || '').trim().toLowerCase();
+        if (name) {
+          if (seenNames.has(name)) {
+            deleteDoc(doc(db, 'users', item.docId)).catch(() => {});
           } else {
+            seenNames.add(name);
             cleanList.push(item.data);
           }
+        } else {
+          cleanList.push(item.data);
         }
-
-        // Sort cleanList: Primary = BP desc, Secondary Tie-breaker = Earliest timestamp first
-        cleanList.sort((a, b) => {
-          const bpA = a.bountyPoints || 100;
-          const bpB = b.bountyPoints || 100;
-          if (bpA !== bpB) {
-            return bpB - bpA; // Higher BP ranks higher
-          }
-          // Tie-breaker: Who earned/reached points earlier ranks higher!
-          const timeA = new Date(a.lastBpUpdatedAt || a.createdAt || '2026-08-19T00:00:00Z').getTime();
-          const timeB = new Date(b.lastBpUpdatedAt || b.createdAt || '2026-08-19T00:00:00Z').getTime();
-          return timeA - timeB; // Earlier timestamp (smaller value) comes FIRST
-        });
-
-        setPlayers(cleanList);
-
-        // Auto-sync real v4rx.me profile data (pp, rank, acc, username, avatar) for players in Leaderboard
-        cleanList.forEach(player => {
-          const idToSync = player.osuId || (player.username && player.username.startsWith('Player #') ? player.username.replace('Player #', '') : null);
-          if (idToSync) {
-            fetchV4rxProfile(idToSync).then(fresh => {
-              if (
-                fresh &&
-                fresh.username &&
-                !fresh.username.startsWith('Player #') &&
-                (fresh.username !== player.username || fresh.v4rxPp !== player.v4rxPp || fresh.v4rxAccuracy !== player.v4rxAccuracy)
-              ) {
-                setPlayers(prev => prev.map(p => p.id === player.id ? {
-                  ...p,
-                  username: fresh.username,
-                  avatarUrl: fresh.avatarUrl,
-                  v4rxPp: fresh.v4rxPp,
-                  v4rxRank: fresh.v4rxRank,
-                  v4rxAccuracy: fresh.v4rxAccuracy,
-                } : p));
-
-                setDoc(doc(db, 'users', player.id), {
-                  username: fresh.username,
-                  avatarUrl: fresh.avatarUrl,
-                  v4rxPp: fresh.v4rxPp,
-                  v4rxRank: fresh.v4rxRank,
-                  v4rxAccuracy: fresh.v4rxAccuracy,
-                }, { merge: true }).catch(() => {});
-              }
-            }).catch(() => {});
-          }
-        });
-      } catch (err) {
-        console.error('Leaderboard fetch error:', err);
-      } finally {
-        setLoading(false);
       }
-    };
-    fetch();
+
+      // Sort cleanList: Primary = BP desc, Secondary Tie-breaker = Earliest timestamp first
+      cleanList.sort((a, b) => {
+        const bpA = a.bountyPoints || 100;
+        const bpB = b.bountyPoints || 100;
+        if (bpA !== bpB) {
+          return bpB - bpA;
+        }
+        const timeA = new Date(a.lastBpUpdatedAt || a.createdAt || '2026-08-19T00:00:00Z').getTime();
+        const timeB = new Date(b.lastBpUpdatedAt || b.createdAt || '2026-08-19T00:00:00Z').getTime();
+        return timeA - timeB;
+      });
+
+      setPlayers(cleanList);
+
+      // Auto-sync real v4rx.me profile data (pp, rank, acc, username, avatar) for players in Leaderboard
+      const syncPromises = cleanList.map(async player => {
+        const idToSync = player.osuId || (player.username && player.username.startsWith('Player #') ? player.username.replace('Player #', '') : null);
+        if (idToSync) {
+          try {
+            const fresh = await fetchV4rxProfile(idToSync);
+            if (
+              fresh &&
+              fresh.username &&
+              !fresh.username.startsWith('Player #') &&
+              (fresh.username !== player.username || fresh.v4rxPp !== player.v4rxPp || fresh.v4rxAccuracy !== player.v4rxAccuracy)
+            ) {
+              setPlayers(prev => prev.map(p => p.id === player.id ? {
+                ...p,
+                username: fresh.username,
+                avatarUrl: fresh.avatarUrl,
+                v4rxPp: fresh.v4rxPp,
+                v4rxRank: fresh.v4rxRank,
+                v4rxAccuracy: fresh.v4rxAccuracy,
+              } : p));
+
+              await setDoc(doc(db, 'users', player.id), {
+                username: fresh.username,
+                avatarUrl: fresh.avatarUrl,
+                v4rxPp: fresh.v4rxPp,
+                v4rxRank: fresh.v4rxRank,
+                v4rxAccuracy: fresh.v4rxAccuracy,
+              }, { merge: true }).catch(() => {});
+            }
+          } catch {
+            // Ignore individual sync errors
+          }
+        }
+      });
+      await Promise.all(syncPromises).catch(() => {});
+    } catch (err) {
+      console.error('Leaderboard fetch error:', err);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadLeaderboardData();
+  }, [loadLeaderboardData]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await loadLeaderboardData();
+    setRefreshing(false);
+  };
 
   const medals      = ['🥇', '🥈', '🥉'];
   const medalColors = ['#e8a020', '#9ca3af', '#b45309'];
@@ -119,16 +129,43 @@ export const Leaderboard: React.FC = () => {
   return (
     <div className="anim-in" style={{ maxWidth: 760, margin: '0 auto', paddingTop: 32, paddingBottom: 48 }}>
       {/* Header */}
-      <div style={{ marginBottom: 28 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-          <div className="merah-putih-neon-box" style={{ width: 34, height: 34 }}>
-            <Trophy size={18} color="#ef4444" />
+      <div style={{ marginBottom: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <div className="merah-putih-neon-box" style={{ width: 34, height: 34 }}>
+              <Trophy size={18} color="#ef4444" />
+            </div>
+            <h1 className="page-title">Leaderboard</h1>
           </div>
-          <h1 className="page-title">Leaderboard</h1>
+          <p className="page-sub">
+            Top Bounty Hunters ranked by vPoints earned across v4rx.me beatmap challenges.
+          </p>
         </div>
-        <p className="page-sub">
-          Top Bounty Hunters ranked by vPoints earned across v4rx.me beatmap challenges.
-        </p>
+
+        {/* Refresh Button */}
+        <button
+          onClick={handleRefresh}
+          disabled={refreshing}
+          className="btn btn-dark-outline"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '8px 14px',
+            borderRadius: 10,
+            fontSize: 12,
+            fontWeight: 600,
+            cursor: refreshing ? 'not-allowed' : 'pointer',
+            background: 'var(--bg-1)',
+            border: '1px solid var(--border)',
+            color: 'var(--text-1)',
+            transition: 'all 0.15s ease',
+          }}
+          title="Refresh Leaderboard Data"
+        >
+          <RotateCw size={13} style={{ animation: refreshing ? 'spin 1s linear infinite' : 'none' }} />
+          <span>{refreshing ? 'Syncing…' : 'Refresh Data'}</span>
+        </button>
       </div>
 
       {uniquePlayers.length === 0 ? (
