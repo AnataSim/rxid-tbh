@@ -1,4 +1,5 @@
 import React, { useEffect, useRef } from 'react';
+import { useCosmetics } from '../context/CosmeticContext';
 
 interface TrailDot {
   x: number;
@@ -9,11 +10,14 @@ interface TrailDot {
   color: string;
 }
 
-// Iconic osu! Cyan, Neon Pink & Sunset Western Gold/Amber cursor trail colors
-const OSU_COLORS = ['#ff7b00', '#f59e0b', '#38bdf8', '#ff66aa', '#c084fc', '#eab308'];
-
 export const CursorTrail: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const { getCursorPalette } = useCosmetics();
+  const paletteRef = useRef(getCursorPalette());
+
+  useEffect(() => {
+    paletteRef.current = getCursorPalette();
+  }, [getCursorPalette]);
 
   useEffect(() => {
     const isMobile = window.innerWidth <= 768 || ('ontouchstart' in window && !window.matchMedia('(pointer: fine)').matches);
@@ -46,13 +50,16 @@ export const CursorTrail: React.FC = () => {
     window.addEventListener('resize', resizeCanvas);
 
     const spawnDot = (x: number, y: number, initialRadius = dotRadius) => {
+      const palette = paletteRef.current;
+      const color = palette[Math.floor(Math.random() * palette.length)];
+
       dots.push({
         x,
         y,
         radius: initialRadius,
         alpha: 0.85,
         decay: decayRate,
-        color: OSU_COLORS[Math.floor(Math.random() * OSU_COLORS.length)],
+        color,
       });
 
       // Maintain a healthy dense trail even during high-speed flicks

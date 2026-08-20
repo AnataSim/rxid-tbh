@@ -16,10 +16,21 @@ export interface RankTierInfo {
   isDiamond: boolean;
 }
 
-export function getRankTierInfo(bpNumber: number = 100, leaderboardRank?: number): RankTierInfo {
-  // If rank parameter passed is a large rank number (e.g. 81) and bp is 0, treat it as BP or convert
+export function getRankTierInfo(bpNumber: number = 100, leaderboardRank?: number, equippedTier?: RankTier): RankTierInfo {
   let bp = bpNumber;
-  if (bpNumber <= 0) bp = 100;
+  if (equippedTier) {
+    switch (equippedTier) {
+      case 'Diamond': bp = 2500; break;
+      case 'Platinum': bp = 2000; break;
+      case 'Gold': bp = 1500; break;
+      case 'Silver': bp = 750; break;
+      case 'Tungsten': bp = 350; break;
+      case 'Copper': bp = 100; break;
+    }
+    leaderboardRank = undefined;
+  } else if (bpNumber <= 0) {
+    bp = 100;
+  }
 
   // 1. Diamond Serial #1, #2, #3 (Top 3 Local Leaderboard)
   if (leaderboardRank === 1) {
@@ -258,6 +269,7 @@ export function CowboyHatIcon({
 interface CowboyRankBadgeProps {
   rank?: number;
   bp?: number;
+  equippedTier?: RankTier;
   size?: 'sm' | 'md' | 'lg';
   showLabel?: boolean;
   className?: string;
@@ -267,12 +279,13 @@ interface CowboyRankBadgeProps {
 export const CowboyRankBadge: React.FC<CowboyRankBadgeProps> = ({
   rank,
   bp = 100,
+  equippedTier,
   size = 'md',
   showLabel = true,
   className = '',
   onClick,
 }) => {
-  const info = getRankTierInfo(bp, rank);
+  const info = getRankTierInfo(bp, rank, equippedTier);
   const iconSizes = { sm: 16, md: 20, lg: 26 };
 
   const badgeClasses = [
@@ -318,6 +331,7 @@ export const CowboyRankBadge: React.FC<CowboyRankBadgeProps> = ({
 interface CowboyRankSquareFrameProps {
   rank?: number;
   bp?: number;
+  equippedTier?: RankTier;
   size?: number; // e.g. 52px, 58px, 64px
   className?: string;
   onClick?: () => void;
@@ -326,11 +340,12 @@ interface CowboyRankSquareFrameProps {
 export const CowboyRankSquareFrame: React.FC<CowboyRankSquareFrameProps> = ({
   rank,
   bp = 100,
+  equippedTier,
   size = 58,
   className = '',
   onClick,
 }) => {
-  const info = getRankTierInfo(bp, rank);
+  const info = getRankTierInfo(bp, rank, equippedTier);
   const iconSize = Math.round(size * 0.62);
 
   return (

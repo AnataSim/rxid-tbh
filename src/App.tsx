@@ -41,6 +41,7 @@ import { db } from './lib/firebase';
 import { ToastContainer, type ToastMessage } from './components/ToastNotification';
 import { AnimatedBackground } from './components/AnimatedBackground';
 import { CursorTrail } from './components/CursorTrail';
+import { CosmeticProvider, useCosmetics } from './context/CosmeticContext';
 
 const GithubIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -49,8 +50,9 @@ const GithubIcon: React.FC<{ size?: number }> = ({ size = 14 }) => (
   </svg>
 );
 
-export function App() {
+export function AppContent() {
   const { currentUser, loading: authLoading, activeRole } = useAuth();
+  const { equippedRankTier } = useCosmetics();
   const isGiver = activeRole === 'bounty_giver';
 
   const [bounties, setBounties] = useState<Bounty[]>(() => {
@@ -375,6 +377,7 @@ export function App() {
                 {/* Big Square Rank Frame Box (Frame Kotak Gede - Matched height 52px) */}
                 <CowboyRankSquareFrame
                   bp={currentUser.bountyPoints || 100}
+                  equippedTier={equippedRankTier || undefined}
                   rank={currentUserRank}
                   size={52}
                   onClick={() => setActiveTab('titles')}
@@ -575,13 +578,21 @@ export function App() {
           onDeleteSubmission={handleDeleteSubmission}
         />
       )}
-      {/* Friends Panel Drawer (Matched with AnataSim/wast) */}
+      {/* Friends Panel Drawer */}
       <FriendsPanel
         user={currentUser}
         isOpen={friendsOpen}
         onClose={() => setFriendsOpen(false)}
       />
     </div>
+  );
+}
+
+export function App() {
+  return (
+    <CosmeticProvider>
+      <AppContent />
+    </CosmeticProvider>
   );
 }
 

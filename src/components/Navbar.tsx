@@ -3,6 +3,7 @@ import { Trophy, Zap, Scroll, Plus, LogOut, ChevronDown, Award, Bell, Users } fr
 import { useAuth } from '../context/AuthContext';
 import { normalizeAvatarUrl } from '../services/authService';
 import { CowboyRankBadge } from './CowboyRankBadge';
+import { useCosmetics } from '../context/CosmeticContext';
 import { subscribeToNotifications, markNotificationAsRead } from '../services/notificationService';
 import type { AppNotification } from '../types/bounty';
 
@@ -18,6 +19,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab, setActiveTab, onOpenCreateModal, onToggleFriends, friendsOpen,
 }) => {
   const { currentUser, logout, activeRole } = useAuth();
+  const { equippedRankTier } = useCosmetics();
   const [userMenuOpen, setUserMenuOpen] = useState(false);
 
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -277,6 +279,7 @@ export const Navbar: React.FC<NavbarProps> = ({
                       <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <CowboyRankBadge
                           bp={currentUser.bountyPoints || 100}
+                          equippedTier={equippedRankTier || undefined}
                           size="sm"
                           onClick={() => {
                             setActiveTab('titles');

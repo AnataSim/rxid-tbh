@@ -1,7 +1,8 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useCosmetics } from '../context/CosmeticContext';
 import { getRankTierInfo, CowboyRankSquareFrame, type RankTier } from './CowboyRankBadge';
-import { Trophy, Shield, Sparkles, Check } from 'lucide-react';
+import { Trophy, Shield, Sparkles, Check, Lock } from 'lucide-react';
 
 export interface RankShowcaseTier {
   tierName: RankTier;
@@ -14,6 +15,7 @@ export interface RankShowcaseTier {
   bgTint: string;
   glowShadow: string;
   gradient: string;
+  minBp: number;
 }
 
 export const ALL_RANK_TIERS: RankShowcaseTier[] = [
@@ -23,10 +25,11 @@ export const ALL_RANK_TIERS: RankShowcaseTier[] = [
     rpCriteria: 'Below 249 BP',
     rankCriteria: 'Default 100 BP',
     sampleBp: 100,
+    minBp: 0,
     badgeColor: '#ea580c',
-    borderColor: 'rgba(234, 88, 12, 0.5)',
+    borderColor: 'rgba(234, 88, 12, 0.65)',
     bgTint: 'rgba(194, 65, 12, 0.14)',
-    glowShadow: '0 0 12px rgba(194, 65, 12, 0.25)',
+    glowShadow: '0 0 20px rgba(234, 88, 12, 0.45)',
     gradient: 'linear-gradient(135deg, #9a3412 0%, #fb923c 100%)',
   },
   {
@@ -35,10 +38,11 @@ export const ALL_RANK_TIERS: RankShowcaseTier[] = [
     rpCriteria: '250 – 499 BP',
     rankCriteria: 'Novice Tier',
     sampleBp: 350,
+    minBp: 250,
     badgeColor: '#94a3b8',
-    borderColor: 'rgba(148, 163, 184, 0.45)',
+    borderColor: 'rgba(148, 163, 184, 0.65)',
     bgTint: 'rgba(71, 85, 105, 0.16)',
-    glowShadow: '0 0 12px rgba(71, 85, 105, 0.25)',
+    glowShadow: '0 0 20px rgba(148, 163, 184, 0.45)',
     gradient: 'linear-gradient(135deg, #334155 0%, #94a3b8 100%)',
   },
   {
@@ -47,10 +51,11 @@ export const ALL_RANK_TIERS: RankShowcaseTier[] = [
     rpCriteria: '500 – 1,249 BP',
     rankCriteria: 'Veteran Tier',
     sampleBp: 750,
+    minBp: 500,
     badgeColor: '#cbd5e1',
-    borderColor: 'rgba(203, 213, 225, 0.5)',
+    borderColor: 'rgba(203, 213, 225, 0.75)',
     bgTint: 'rgba(148, 163, 184, 0.14)',
-    glowShadow: '0 0 12px rgba(148, 163, 184, 0.25)',
+    glowShadow: '0 0 20px rgba(203, 213, 225, 0.5)',
     gradient: 'linear-gradient(135deg, #64748b 0%, #f8fafc 100%)',
   },
   {
@@ -59,10 +64,11 @@ export const ALL_RANK_TIERS: RankShowcaseTier[] = [
     rpCriteria: '1,250 – 1,849 BP',
     rankCriteria: 'Elite Tier',
     sampleBp: 1500,
+    minBp: 1250,
     badgeColor: '#fbbf24',
-    borderColor: 'rgba(251, 191, 36, 0.6)',
+    borderColor: 'rgba(251, 191, 36, 0.8)',
     bgTint: 'rgba(245, 158, 11, 0.14)',
-    glowShadow: '0 0 14px rgba(245, 158, 11, 0.3)',
+    glowShadow: '0 0 22px rgba(251, 191, 36, 0.55)',
     gradient: 'linear-gradient(135deg, #d97706 0%, #fef08a 100%)',
   },
   {
@@ -71,10 +77,11 @@ export const ALL_RANK_TIERS: RankShowcaseTier[] = [
     rpCriteria: '1,850+ BP',
     rankCriteria: 'Master Tier',
     sampleBp: 2000,
+    minBp: 1850,
     badgeColor: '#22d3ee',
-    borderColor: 'rgba(34, 211, 238, 0.6)',
+    borderColor: 'rgba(34, 211, 238, 0.8)',
     bgTint: 'rgba(6, 182, 212, 0.14)',
-    glowShadow: '0 0 16px rgba(6, 182, 212, 0.35)',
+    glowShadow: '0 0 24px rgba(34, 211, 238, 0.6)',
     gradient: 'linear-gradient(135deg, #06b6d4 0%, #67e8f9 100%)',
   },
   {
@@ -83,18 +90,21 @@ export const ALL_RANK_TIERS: RankShowcaseTier[] = [
     rpCriteria: 'Top 3 (Local)',
     rankCriteria: 'Leaderboard #1, #2, #3',
     sampleBp: 3500,
+    minBp: 2500,
     badgeColor: '#c084fc',
-    borderColor: 'rgba(192, 132, 252, 0.8)',
+    borderColor: 'rgba(192, 132, 252, 0.85)',
     bgTint: 'rgba(168, 85, 247, 0.16)',
-    glowShadow: '0 0 20px rgba(168, 85, 247, 0.5)',
+    glowShadow: '0 0 26px rgba(168, 85, 247, 0.65)',
     gradient: 'linear-gradient(135deg, #a855f7 0%, #38bdf8 100%)',
   },
 ];
 
 export const TitlesPage: React.FC = () => {
   const { currentUser } = useAuth();
+  const { equippedRankTier, toggleTier } = useCosmetics();
+
   const currentBp = currentUser?.bountyPoints && currentUser.bountyPoints > 0 ? currentUser.bountyPoints : 100;
-  const currentTierInfo = getRankTierInfo(currentBp);
+  const currentTierInfo = getRankTierInfo(currentBp, undefined, equippedRankTier || undefined);
 
   // Compute BP progress percentage to next tier
   let nextBpTarget = 250;
@@ -117,23 +127,25 @@ export const TitlesPage: React.FC = () => {
           <h1 className="page-title">Titles & Cowboy Hat Rank Frames</h1>
         </div>
         <p className="page-sub">
-          Titles indicate each user's skill, Bounty Points (BP), and local leaderboard standing.
+          Equip accessories & custom rank frames to personalize your avatar and cursor trail!
         </p>
       </div>
 
-      {/* Top Active Title Card (Matching User's Request & Image 1 & 2) */}
-      <div className="titles-active-card" style={{ borderColor: currentTierInfo.borderColor }}>
+      {/* Top Active Title Card */}
+      <div className="titles-active-card" style={{ borderColor: currentTierInfo.borderColor, boxShadow: currentTierInfo.glowShadow }}>
         <div className="titles-active-glow" style={{ background: currentTierInfo.badgeColor }} />
 
-        {/* Big Rounded Square Rank Frame Box (Frame Kotak Gede) */}
+        {/* Big Rounded Square Rank Frame Box */}
         <div style={{ marginBottom: 14 }}>
-          <CowboyRankSquareFrame bp={currentBp} size={72} />
+          <CowboyRankSquareFrame bp={currentBp} equippedTier={equippedRankTier || undefined} size={72} />
         </div>
 
         <div className="titles-active-name" style={{ color: currentTierInfo.badgeColor }}>
-          {currentTierInfo.tier} ({currentBp} BP)
+          {currentTierInfo.tier} {equippedRankTier ? '(Equipped Cosmetic)' : `(${currentBp} BP)`}
         </div>
-        <div className="titles-active-sub">Your current Bounty rank title</div>
+        <div className="titles-active-sub">
+          {equippedRankTier ? `Active equipped rank accessory theme: ${equippedRankTier}` : 'Your default BP rank title'}
+        </div>
 
         {/* Progress Bar */}
         <div className="titles-progress-bar-wrap">
@@ -154,30 +166,36 @@ export const TitlesPage: React.FC = () => {
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
         <h2 style={{ fontSize: 16, fontWeight: 700, letterSpacing: '-0.3px', display: 'flex', alignItems: 'center', gap: 6 }}>
           <Shield size={16} style={{ color: 'var(--text-3)' }} />
-          All Rank Cowboy Hat Frames
+          Rank Accessories & Cowboy Hat Frames
         </h2>
-        <span style={{ fontSize: 12, color: 'var(--text-3)' }}>6 Rank Tiers</span>
+        <span style={{ fontSize: 12, color: 'var(--text-3)' }}>6 Unlockable Accessories</span>
       </div>
 
-      {/* All Titles Grid (Matching Image 1 & 2) */}
+      {/* All Titles Grid with Equip/Unequip Outer Glowing Card Styling */}
       <div className="titles-grid">
         {ALL_RANK_TIERS.map((item) => {
-          const isActive = item.tierName.toLowerCase() === currentTierInfo.tier.toLowerCase();
+          const isEquipped = equippedRankTier === item.tierName;
+          const isUnlocked = currentBp >= item.minBp || item.tierName === 'Copper';
 
           return (
             <div
               key={item.tierName}
-              className={`title-card ${isActive ? 'active-rank' : ''}`}
+              className={`title-card ${isEquipped ? 'equipped-cosmetic-glow' : ''}`}
               style={{
-                borderColor: isActive ? item.borderColor : undefined,
+                position: 'relative',
+                borderColor: isEquipped ? item.badgeColor : isUnlocked ? 'var(--border)' : 'rgba(255,255,255,0.06)',
+                boxShadow: isEquipped ? item.glowShadow : 'none',
+                transition: 'all 0.25s ease',
+                opacity: isUnlocked ? 1 : 0.65,
+                background: isEquipped ? item.bgTint : 'var(--bg-card)',
               }}
             >
-              {/* Big Rounded Square Rank Frame Box (Frame Kotak Gede) */}
-              <CowboyRankSquareFrame bp={item.sampleBp} size={54} />
+              {/* Big Rounded Square Rank Frame Box */}
+              <CowboyRankSquareFrame bp={item.sampleBp} equippedTier={item.tierName} size={54} />
 
               {/* Info */}
               <div className="title-card-info">
-                <div className="title-card-title" style={{ color: item.badgeColor }}>
+                <div className="title-card-title" style={{ color: item.badgeColor, fontWeight: 700 }}>
                   {item.tierName}
                 </div>
                 <div className="title-card-criteria">
@@ -185,32 +203,57 @@ export const TitlesPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Status Badge */}
-              {isActive ? (
-                <div
-                  className="title-card-badge"
+              {/* Equip / Unequip Action Button */}
+              {isUnlocked ? (
+                <button
+                  type="button"
+                  onClick={() => toggleTier(item.tierName)}
                   style={{
-                    background: item.bgTint,
-                    color: item.badgeColor,
-                    border: `1px solid ${item.borderColor}`,
+                    background: isEquipped ? item.gradient : 'var(--bg-3)',
+                    color: isEquipped ? '#ffffff' : 'var(--text-1)',
+                    border: isEquipped ? `1px solid ${item.borderColor}` : '1px solid var(--border)',
+                    boxShadow: isEquipped ? `0 0 14px ${item.borderColor}` : 'none',
+                    borderRadius: 99,
+                    padding: '6px 14px',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: 3,
+                    gap: 4,
+                    transition: 'all 0.2s ease',
                   }}
+                  title={isEquipped ? 'Click to unequip / reset to default' : `Equip ${item.tierName} Accessory`}
                 >
-                  <Check size={10} /> Active
-                </div>
+                  {isEquipped ? (
+                    <>
+                      <Check size={11} /> EQUIPPED
+                    </>
+                  ) : (
+                    'EQUIP'
+                  )}
+                </button>
               ) : (
-                <div
-                  className="title-card-badge"
+                <button
+                  type="button"
+                  disabled
                   style={{
-                    background: 'var(--bg-3)',
+                    background: 'rgba(255,255,255,0.03)',
                     color: 'var(--text-3)',
                     border: '1px solid var(--border)',
+                    borderRadius: 99,
+                    padding: '6px 12px',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    cursor: 'not-allowed',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4,
                   }}
+                  title={`Locked (Requires ${item.minBp} BP)`}
                 >
-                  Unlocked
-                </div>
+                  <Lock size={10} /> LOCKED
+                </button>
               )}
             </div>
           );
@@ -219,7 +262,7 @@ export const TitlesPage: React.FC = () => {
 
       <div style={{ marginTop: 24, textAlign: 'center', fontSize: 12, color: 'var(--text-3)', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
         <Sparkles size={13} style={{ color: 'var(--gold)' }} />
-        Rank cowboy hat emblems dynamically update based on your local Bounty Points (BP)!
+        Equipping an accessory changes your Avatar Frame and custom Cursor Trail color theme! Click again to unequip.
       </div>
     </div>
   );
