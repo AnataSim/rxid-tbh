@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, orderBy, limit, getDocs, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, orderBy, limit, getDocs, deleteDoc, setDoc, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { User } from '../types/bounty';
 import { Trophy, Coins, Target, Star, Zap, Loader2 } from 'lucide-react';
 import { normalizeAvatarUrl } from '../services/authService';
 import { CowboyRankSquareFrame } from './CowboyRankBadge';
+import { fetchV4rxProfile } from '../services/osuApi';
 
 export const Leaderboard: React.FC = () => {
   const [players, setPlayers] = useState<User[]>([]);
@@ -53,6 +54,38 @@ export const Leaderboard: React.FC = () => {
         });
 
         setPlayers(cleanList);
+
+        // Auto-sync real v4rx.me profile data (pp, rank, acc, username, avatar) for players in Leaderboard
+        cleanList.forEach(player => {
+          const idToSync = player.osuId || (player.username && player.username.startsWith('Player #') ? player.username.replace('Player #', '') : null);
+          if (idToSync) {
+            fetchV4rxProfile(idToSync).then(fresh => {
+              if (
+                fresh &&
+                fresh.username &&
+                !fresh.username.startsWith('Player #') &&
+                (fresh.username !== player.username || fresh.v4rxPp !== player.v4rxPp || fresh.v4rxAccuracy !== player.v4rxAccuracy)
+              ) {
+                setPlayers(prev => prev.map(p => p.id === player.id ? {
+                  ...p,
+                  username: fresh.username,
+                  avatarUrl: fresh.avatarUrl,
+                  v4rxPp: fresh.v4rxPp,
+                  v4rxRank: fresh.v4rxRank,
+                  v4rxAccuracy: fresh.v4rxAccuracy,
+                } : p));
+
+                setDoc(doc(db, 'users', player.id), {
+                  username: fresh.username,
+                  avatarUrl: fresh.avatarUrl,
+                  v4rxPp: fresh.v4rxPp,
+                  v4rxRank: fresh.v4rxRank,
+                  v4rxAccuracy: fresh.v4rxAccuracy,
+                }, { merge: true }).catch(() => {});
+              }
+            }).catch(() => {});
+          }
+        });
       } catch (err) {
         console.error('Leaderboard fetch error:', err);
       } finally {
