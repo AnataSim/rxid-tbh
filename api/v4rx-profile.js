@@ -81,7 +81,8 @@ export default async function handler(req, res) {
 
   // Presets fallback if scraper didn't catch specific profile
   if (!matched) {
-    if (cleanLower === '43' || cleanLower === 'melancholy') { liveRank = 2; livePp = 60969; liveName = 'Melancholy'; liveId = '43'; }
+    if (cleanLower === '453' || cleanLower === 'foshy') { liveRank = 1; livePp = 65336; liveName = 'foshy'; liveId = '453'; }
+    else if (cleanLower === '43' || cleanLower === 'melancholy') { liveRank = 2; livePp = 60969; liveName = 'Melancholy'; liveId = '43'; }
     else if (cleanLower === '27' || cleanLower === 'learnerx') { liveRank = 6; livePp = 48788; liveName = 'learnerx'; liveId = '27'; }
     else if (cleanLower === '106' || cleanLower === 'lostrushi') { liveRank = 32; livePp = 27652; liveName = 'lostrushi'; liveId = '106'; }
     else if (cleanLower === '63' || cleanLower === 'darkww') { liveRank = 34; livePp = 26657; liveName = 'darkww'; liveId = '63'; }
@@ -90,7 +91,7 @@ export default async function handler(req, res) {
     else if (cleanLower === '85' || cleanLower === 'sim') { liveRank = 82; livePp = 19062; liveName = 'Sim'; liveId = '85'; }
   }
 
-  // 2. Fetch individual profile page to get real Accuracy & Country
+  // 2. Fetch individual profile page to extract EXACT username capitalization, Accuracy, and Country
   let acc = 96.85;
   let countryCode = 'ID';
 
@@ -104,9 +105,14 @@ export default async function handler(req, res) {
 
     if (pRes.ok) {
       const pText = await pRes.text();
+      const h1Match = pText.match(/<h1[^>]*class="[^"]*truncate[^"]*"[^>]*>\s*(.*?)\s*<\/h1>/i) ||
+                      pText.match(/<title>(.*?)'s Profile<\/title>/i);
       const accMatch = pText.match(/(\d{2}\.\d{1,2})\s*%/i) || pText.match(/Accuracy:\s*([\d.]+)/i);
       const cMatch = pText.match(/flag-icon-([a-z]{2})/i) || pText.match(/country[=_"']([a-z]{2})/i);
 
+      if (h1Match && h1Match[1].trim() && !h1Match[1].toLowerCase().includes('v4rx')) {
+        liveName = h1Match[1].replace(/'s Profile/i, '').trim();
+      }
       if (accMatch) {
         const parsed = parseFloat(accMatch[1]);
         if (parsed > 50 && parsed < 100) {

@@ -299,14 +299,15 @@ export async function fetchV4rxProfile(userIdOrName: string): Promise<V4rxFetche
           const raw = await res.json().catch(() => null);
           const text = raw?.contents || (await res.text().catch(() => ''));
 
+          const h1Match      = text.match(/<h1[^>]*class="[^"]*truncate[^"]*"[^>]*>\s*(.*?)\s*<\/h1>/i);
           const titleMatch   = text.match(/<title>(.*?)'s Profile<\/title>/i) || text.match(/<title>(.*?)<\/title>/i);
           const ppMatch      = text.match(/(\d+)pp/i);
-          const accMatch     = text.match(/([\d.]+)%/i);
+          const accMatch     = text.match(/(\d{2}\.\d{1,2})\s*%/i) || text.match(/Accuracy:\s*([\d.]+)/i);
           const rankMatch    = text.match(/#(\d+)/i) || text.match(/fa-hashtag[^>]*><\/i>\s*(\d+)/i);
           const countryMatch = text.match(/flag-icon-([a-z]{2})/i) || text.match(/country[=_"']([a-z]{2})/i);
 
-          if (titleMatch) {
-            let username = titleMatch[1].replace(/'s Profile/i, '').trim();
+          if (h1Match || titleMatch) {
+            let username = (h1Match ? h1Match[1] : titleMatch![1]).replace(/'s Profile/i, '').trim();
             if (!username || username.toLowerCase().includes('profile') || username.toLowerCase().includes('v4rx')) {
               username = `Player #${clean}`;
             }
