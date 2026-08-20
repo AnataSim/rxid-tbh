@@ -1494,6 +1494,34 @@ select.form-input { cursor: pointer; }
    MOBILE FLOATING BOTTOM NAVIGATION BAR
    (Hidden completely on Desktop, visible ONLY on mobile <= 768px)
 ───────────────────────────────────────────── */
+.mobile-bottom-nav {
+  display: none !important;
+}
+
+/* Centered Results Counter (Number centered directly above result text) */
+.results-counter {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.15;
+  min-width: 48px;
+}
+.results-num {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--text-1);
+  text-align: center;
+  width: 100%;
+}
+.results-txt {
+  font-size: 10.5px;
+  color: var(--text-3);
+  text-align: center;
+  width: 100%;
+}
+
 /* Post Bounty Button Desktop Default */
 .btn-post-bounty-full-bar {
   width: 52px;

@@ -404,9 +404,10 @@ export function App() {
               </div>
 
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <span style={{ fontSize: 12, color: 'var(--text-3)' }}>
-                  {filtered.length} result{filtered.length !== 1 ? 's' : ''}
-                </span>
+                <div className="results-counter">
+                  <div className="results-num">{filtered.length}</div>
+                  <div className="results-txt">result{filtered.length !== 1 ? 's' : ''}</div>
+                </div>
                 <div className="search-box">
                   <Search size={13} />
                   <input
