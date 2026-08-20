@@ -6,6 +6,7 @@ import { Trophy, Coins, Target, Star, Zap, Loader2, RotateCw } from 'lucide-reac
 import { normalizeAvatarUrl } from '../services/authService';
 import { CowboyRankSquareFrame } from './CowboyRankBadge';
 import { fetchV4rxProfile } from '../services/osuApi';
+import { BugHunterIcon } from './BugHunterBadge';
 
 export const Leaderboard: React.FC = () => {
   const [players, setPlayers] = useState<User[]>([]);
@@ -212,6 +213,7 @@ export const Leaderboard: React.FC = () => {
                       onError={e => { e.currentTarget.style.display = 'none'; }}
                     />
                     <span>{p.username}</span>
+                    <BugHunterIcon username={p.username} />
                   </div>
                   {(() => {
                     const rankVal = p.v4rxRank && p.v4rxRank > 0 ? p.v4rxRank : (p.osuId && /^\d+$/.test(p.osuId) ? parseInt(p.osuId, 10) : (i + 1) * 15);

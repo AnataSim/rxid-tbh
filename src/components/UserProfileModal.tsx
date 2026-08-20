@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, UserX, Calendar } from 'lucide-react';
 import { CowboyRankSquareFrame } from './CowboyRankBadge';
+import { BugHunterIcon } from './BugHunterBadge';
 import { normalizeAvatarUrl } from '../services/authService';
 
 export interface UserProfileData {
@@ -114,6 +115,7 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClos
             >
               {user.username.toLowerCase() === 'sim' ? 'BG' : 'TBH'}
             </span>
+            <BugHunterIcon username={user.username} />
           </div>
 
           <div style={{ fontSize: 12, color: 'var(--text-3)', display: 'flex', alignItems: 'center', gap: 12, marginTop: 6 }}>

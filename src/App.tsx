@@ -13,6 +13,7 @@ import { RulesPage } from './components/RulesPage';
 import { TitlesPage } from './components/TitlesPage';
 import { FriendsPanel } from './components/FriendsPanel';
 import { CoolLoadingScreen } from './components/CoolLoadingScreen';
+import { BugHunterIcon } from './components/BugHunterBadge';
 import {
   subscribeToBounties,
   createBounty,
@@ -335,6 +336,7 @@ export function App() {
                     >
                       {activeRole === 'bounty_giver' ? 'BG' : 'TBH'}
                     </span>
+                    <BugHunterIcon username={currentUser.username} />
                   </div>
                   <div className="hero-sub" style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 4 }}>
                     <div style={{ color: 'var(--text-3)', fontSize: 12 }}>
