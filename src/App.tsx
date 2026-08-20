@@ -8,6 +8,7 @@ import { BountyDetailModal } from './components/BountyDetailModal';
 import { CreateBountyModal } from './components/CreateBountyModal';
 import { SubmitProofModal } from './components/SubmitProofModal';
 import { ReviewSubmissionModal } from './components/ReviewSubmissionModal';
+import { EditBountyModal } from './components/EditBountyModal';
 import { Leaderboard } from './components/Leaderboard';
 import { RulesPage } from './components/RulesPage';
 import { TitlesPage } from './components/TitlesPage';
@@ -17,6 +18,7 @@ import { BugHunterIcon } from './components/BugHunterBadge';
 import {
   subscribeToBounties,
   createBounty,
+  updateBounty,
   submitProof,
   approveSubmission,
   rejectSubmission,
@@ -62,6 +64,7 @@ export function App() {
   const [isCreateOpen, setIsCreateOpen]        = useState(false);
   const [submitProofBounty, setSubmitProofBounty] = useState<Bounty | null>(null);
   const [reviewBounty, setReviewBounty]        = useState<Bounty | null>(null);
+  const [editingBounty, setEditingBounty]      = useState<Bounty | null>(null);
   const [friendsOpen, setFriendsOpen]          = useState(false);
   const [securityModalOpen, setSecurityModalOpen] = useState(false);
 
@@ -151,6 +154,19 @@ export function App() {
       setSelectedBounty(null);
     } catch (err: any) {
       addToast(err.message || 'Failed to delete bounty.', 'error');
+    }
+  };
+
+  const handleSaveBounty = async (bountyId: string, updates: Partial<Bounty>) => {
+    try {
+      await updateBounty(bountyId, updates);
+      addToast('Bounty updated successfully! ✏️', 'success');
+      setEditingBounty(null);
+      if (selectedBounty && selectedBounty.id === bountyId) {
+        setSelectedBounty(prev => prev ? { ...prev, ...updates } : null);
+      }
+    } catch (err: any) {
+      addToast(err.message || 'Failed to update bounty.', 'error');
     }
   };
 
@@ -519,6 +535,14 @@ export function App() {
           onDeleteSubmission={handleDeleteSubmission}
           onRateDifficulty={handleRateDifficulty}
           onDeleteBounty={handleDeleteBounty}
+          onEditBounty={b => setEditingBounty(b)}
+        />
+      )}
+      {editingBounty && (
+        <EditBountyModal
+          bounty={editingBounty}
+          onClose={() => setEditingBounty(null)}
+          onSaveBounty={handleSaveBounty}
         />
       )}
       {isCreateOpen && isGiver && (

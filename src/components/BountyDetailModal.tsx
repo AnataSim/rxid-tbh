@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import type { Bounty, User, Submission } from '../types/bounty';
 import { normalizeAvatarUrl } from '../services/authService';
 import {
-  X, Star, Clock, Play, RefreshCw, Trash2,
+  X, Star, Clock, Play, RefreshCw, Trash2, Pencil,
   ExternalLink, ShieldCheck, Upload, Coins, Calendar, Trophy
 } from 'lucide-react';
 
@@ -20,10 +20,11 @@ interface BountyDetailModalProps {
   onDeleteSubmission?: (bountyId: string, subId: string) => void;
   onRateDifficulty?: (bountyId: string, rating: number) => void;
   onDeleteBounty?: (bountyId: string) => void;
+  onEditBounty?: (bounty: Bounty) => void;
 }
 
 export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
-  bounty, currentUser, onClose, onOpenSubmitProof, onOpenReview, onDeleteSubmission, onRateDifficulty, onDeleteBounty,
+  bounty, currentUser, onClose, onOpenSubmitProof, onOpenReview, onDeleteSubmission, onRateDifficulty, onDeleteBounty, onEditBounty,
 }) => {
   const { activeRole } = useAuth();
   if (!bounty) return null;
@@ -65,8 +66,24 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
   return (
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="modal modal-max-lg modal-scroll">
-        {/* Top Right Action Buttons (Delete for Giver & Close) */}
+        {/* Top Right Action Buttons (Edit & Delete for Giver & Close) */}
         <div style={{ position: 'absolute', top: 14, right: 14, zIndex: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+          {isGiver && onEditBounty && (
+            <button
+              type="button"
+              onClick={() => onEditBounty(bounty)}
+              className="btn btn-icon btn-sm"
+              style={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-1)',
+                cursor: 'pointer',
+              }}
+              title="Edit Bounty"
+            >
+              <Pencil size={14} />
+            </button>
+          )}
           {isGiver && onDeleteBounty && (
             <button
               type="button"

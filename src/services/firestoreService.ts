@@ -103,6 +103,20 @@ export async function createBounty(
 }
 
 /**
+ * Update an existing bounty in Firestore
+ */
+export async function updateBounty(
+  bountyId: string,
+  updates: Partial<Bounty>
+): Promise<void> {
+  const bountyRef = doc(db, BOUNTIES_COL, bountyId);
+  await updateDoc(bountyRef, {
+    ...updates,
+    updatedAtServer: serverTimestamp(),
+  });
+}
+
+/**
  * Submit a proof to a bounty's submissions subcollection + notify giver + touch parent doc
  */
 export async function submitProof(

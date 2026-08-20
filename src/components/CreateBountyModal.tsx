@@ -18,6 +18,7 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
   const [rules, setRules] = useState<string[]>([]);
   const [newRule, setNewRule] = useState('');
   const [tagInput, setTagInput] = useState('');
+  const [skillsetInput, setSkillsetInput] = useState('');
   const [metadata, setMetadata] = useState<BeatmapMetadata | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -44,12 +45,14 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
     e.preventDefault();
     if (!metadata) return;
     const tags = tagInput.split(',').map(t => t.trim()).filter(Boolean);
+    const skillsets = skillsetInput.split(',').map(s => s.trim()).filter(Boolean);
     onCreateBounty({
       beatmap: metadata,
       giver: { id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl },
       reward: { amount: Number(rewardAmount) || 0, currency: 'BP' },
       instructions, rules,
       tags: [metadata.status.toUpperCase(), ...tags.filter(Boolean)],
+      skillsets,
       status: 'open',
       createdAt: new Date().toISOString(),
       views: 0,
@@ -205,6 +208,17 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
                 type="text" value={tagInput}
                 onChange={e => setTagInput(e.target.value)}
                 placeholder="HDDT, FC, 99% Acc"
+                className="form-input"
+              />
+            </div>
+
+            {/* Skillset */}
+            <div className="form-group">
+              <label className="form-label">Skillset (comma separated)</label>
+              <input
+                type="text" value={skillsetInput}
+                onChange={e => setSkillsetInput(e.target.value)}
+                placeholder="e.g. Aim, Jump, Stream, Reading, Stamina"
                 className="form-input"
               />
             </div>

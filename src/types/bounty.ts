@@ -72,6 +72,7 @@ export interface Bounty {
   instructions: string;
   rules: string[];
   tags: string[];
+  skillsets?: string[];
   status: 'open' | 'in_progress' | 'completed' | 'closed';
   createdAt: string;
   deadline?: string;

@@ -9,8 +9,16 @@ interface BountyCardProps {
 }
 
 export const BountyCard: React.FC<BountyCardProps> = ({ bounty, onSelect }) => {
-  const { beatmap, reward, views, tags, status } = bounty;
-  const mainTag = tags.find(t => t !== 'RANKED' && t !== 'LOVED') || '';
+  const { beatmap, reward, views, status } = bounty;
+
+  // Skillsets (explicit field or inferred fallback for legacy maps)
+  const rawSkillsets = (bounty.skillsets && bounty.skillsets.length > 0)
+    ? bounty.skillsets
+    : (bounty.tags || []).filter(t => !['RANKED', 'LOVED', 'GRAVEYARD', 'APPROVED', 'PENDING'].includes(t.toUpperCase())).filter(Boolean);
+
+  const skillsets = rawSkillsets.length > 0
+    ? rawSkillsets
+    : (beatmap.starRating >= 7.0 ? ['Stream', 'Aim'] : beatmap.starRating >= 5.5 ? ['Jump', 'Aim'] : ['Reading', 'Aim']);
 
   return (
     <div className="bounty-card" onClick={() => onSelect(bounty)}>
@@ -26,14 +34,28 @@ export const BountyCard: React.FC<BountyCardProps> = ({ bounty, onSelect }) => {
         />
         <div className="card-img-fade" />
 
-        {/* TL: Status + tag */}
-        <div className="card-img-tl">
-          <span className={`label ${beatmap.status.toLowerCase() === 'loved' ? 'label-loved' : 'label-ranked'}`}>
-            {beatmap.status}
+        {/* TL: Status + Skillset badges */}
+        <div className="card-img-tl" style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
+          <span className={`label ${beatmap.status.toLowerCase() === 'loved' ? 'label-loved' : beatmap.status.toLowerCase() === 'graveyard' ? 'label-graveyard' : 'label-ranked'}`}>
+            {beatmap.status.toUpperCase()}
           </span>
-          {mainTag && (
-            <span className="label label-tag">{mainTag}</span>
-          )}
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {skillsets.slice(0, 2).map((skill, idx) => (
+              <span key={idx} className="label label-skillset" style={{
+                fontSize: 9,
+                fontWeight: 700,
+                padding: '2px 6px',
+                borderRadius: 5,
+                background: 'rgba(255, 77, 141, 0.2)',
+                border: '1px solid rgba(255, 77, 141, 0.45)',
+                color: '#ff4d8d',
+                backdropFilter: 'blur(4px)',
+                letterSpacing: '0.2px',
+              }}>
+                {skill}
+              </span>
+            ))}
+          </div>
         </div>
 
         {/* TR: Star / Duration / Plays */}
