@@ -338,96 +338,30 @@ export async function fetchV4rxProfile(userIdOrName: string): Promise<V4rxFetche
     }
   }
 
-  // 2. Verified presets for popular v4rx.me user IDs
+  // 2. Verified presets from live v4rx.me global leaderboard
+  if (clean === '453' || clean.toLowerCase() === 'foshy') {
+    return { id: '453', username: 'foshy', avatarUrl: 'https://v4rx.me/user/avatar/453.png', countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 1, v4rxPp: 65336, v4rxAccuracy: 99.10 };
+  }
   if (clean === '43' || clean.toLowerCase() === 'melancholy') {
-    return {
-      id:           '43',
-      username:     'Melancholy',
-      avatarUrl:    'https://v4rx.me/user/avatar/43.png',
-      countryCode:  'ID',
-      countryFlag:  '🇮🇩',
-      v4rxRank:     2,
-      v4rxPp:       60653,
-      v4rxAccuracy: 95.07,
-    };
+    return { id: '43', username: 'Melancholy', avatarUrl: 'https://v4rx.me/user/avatar/43.png', countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 2, v4rxPp: 60969, v4rxAccuracy: 95.07 };
   }
-
   if (clean === '27' || clean.toLowerCase() === 'learnerx') {
-    return {
-      id:           '27',
-      username:     'learnerx',
-      avatarUrl:    'https://v4rx.me/user/avatar/27.png',
-      countryCode:  'ID',
-      countryFlag:  '🇮🇩',
-      v4rxRank:     6,
-      v4rxPp:       48788,
-      v4rxAccuracy: 95.27,
-    };
+    return { id: '27', username: 'learnerx', avatarUrl: 'https://v4rx.me/user/avatar/27.png', countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 6, v4rxPp: 48788, v4rxAccuracy: 95.27 };
   }
-
-  if (clean === '85' || clean === '83' || clean.toLowerCase() === 'sim' || clean.toLowerCase() === 'zennia') {
-    return {
-      id:           clean || '85',
-      username:     'Sim',
-      avatarUrl:    `https://v4rx.me/user/avatar/${clean || '85'}.png`,
-      countryCode:  'ID',
-      countryFlag:  '🇮🇩',
-      v4rxRank:     81,
-      v4rxPp:       19062,
-      v4rxAccuracy: 94.91,
-    };
-  }
-
-  if (clean === '63' || clean.toLowerCase() === 'darkww') {
-    return {
-      id:           '63',
-      username:     'darkww',
-      avatarUrl:    'https://v4rx.me/user/avatar/63.png',
-      countryCode:  'ID',
-      countryFlag:  '🇮🇩',
-      v4rxRank:     3,
-      v4rxPp:       26657,
-      v4rxAccuracy: 97.45,
-    };
-  }
-
-  if (clean === '1051' || clean.toLowerCase() === 'transcensionism') {
-    return {
-      id:           '1051',
-      username:     'Transcensionism',
-      avatarUrl:    'https://v4rx.me/user/avatar/1051.png',
-      countryCode:  'ID',
-      countryFlag:  '🇮🇩',
-      v4rxRank:     12,
-      v4rxPp:       21822,
-      v4rxAccuracy: 96.12,
-    };
-  }
-
-  if (clean === '23' || clean.toLowerCase() === 'cookedfishrx') {
-    return {
-      id:           '23',
-      username:     'CookedFishRX',
-      avatarUrl:    'https://v4rx.me/user/avatar/23.png',
-      countryCode:  'ID',
-      countryFlag:  '🇮🇩',
-      v4rxRank:     8,
-      v4rxPp:       24754,
-      v4rxAccuracy: 98.20,
-    };
-  }
-
   if (clean === '106' || clean.toLowerCase() === 'lostrushi') {
-    return {
-      id:           '106',
-      username:     'lostrushi',
-      avatarUrl:    'https://v4rx.me/user/avatar/106.png',
-      countryCode:  'ID',
-      countryFlag:  '🇮🇩',
-      v4rxRank:     5,
-      v4rxPp:       27652,
-      v4rxAccuracy: 98.95,
-    };
+    return { id: '106', username: 'lostrushi', avatarUrl: 'https://v4rx.me/user/avatar/106.png', countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 32, v4rxPp: 27652, v4rxAccuracy: 98.95 };
+  }
+  if (clean === '63' || clean.toLowerCase() === 'darkww') {
+    return { id: '63', username: 'darkww', avatarUrl: 'https://v4rx.me/user/avatar/63.png', countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 34, v4rxPp: 26657, v4rxAccuracy: 97.45 };
+  }
+  if (clean === '23' || clean.toLowerCase() === 'cookedfishrx') {
+    return { id: '23', username: 'CookedFishRX', avatarUrl: 'https://v4rx.me/user/avatar/23.png', countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 42, v4rxPp: 24754, v4rxAccuracy: 98.20 };
+  }
+  if (clean === '1051' || clean.toLowerCase() === 'transcensionism') {
+    return { id: '1051', username: 'Transcensionism', avatarUrl: 'https://v4rx.me/user/avatar/1051.png', countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 61, v4rxPp: 21822, v4rxAccuracy: 96.12 };
+  }
+  if (clean === '85' || clean === '83' || clean.toLowerCase() === 'sim' || clean.toLowerCase() === 'zennia') {
+    return { id: clean || '85', username: 'Sim', avatarUrl: `https://v4rx.me/user/avatar/${clean || '85'}.png`, countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 82, v4rxPp: 19062, v4rxAccuracy: 94.91 };
   }
 
   // 3. Fallback for any unmapped numeric user ID
