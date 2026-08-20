@@ -299,7 +299,7 @@ export function App() {
                   </a>
 
                   <a
-                    href="https://github.com"
+                    href="https://github.com/AnataSim/rxid-tbh"
                     target="_blank"
                     rel="noopener noreferrer"
                     className="banner-action-btn btn-discord-dark"

@@ -291,7 +291,7 @@ export const ReviewSubmissionModal: React.FC<ReviewSubmissionModalProps> = ({
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             {isApproved ? (
                               <span className="sub-status sub-status-approved" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <CheckCircle2 size={11} /> Approved (+{bounty.reward.amount} {bounty.reward.currency})
+                                <CheckCircle2 size={11} /> Approved (+{sub.awardedBp !== undefined ? sub.awardedBp : bounty.reward.amount} {bounty.reward.currency}{sub.bpMultiplier !== undefined && sub.bpMultiplier !== 1.0 ? ` [${sub.bpMultiplier}x]` : ''})
                               </span>
                             ) : (
                               <span className="sub-status sub-status-rejected" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>

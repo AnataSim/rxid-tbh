@@ -153,7 +153,33 @@ export async function submitProof(
 }
 
 /**
- * Approve a submission → sets submission status to 'approved', bounty to 'completed', awards +rewardAmount BP to hunter, and notifies hunter
+ * Calculate BP Multiplier based on current hunter BP:
+ * 100-999    : x1
+ * 1000-1249  : x0.75
+ * 1250-1499  : x0.6
+ * 1500-1699  : x0.45
+ * 1700-1799  : x0.25
+ * 1800-1850  : x0.15 (1800 to 1849)
+ * 1850+      : x0.8
+ */
+export function getBpMultiplier(currentBp: number = 100): number {
+  if (currentBp >= 1850) return 0.8;
+  if (currentBp >= 1800) return 0.15;
+  if (currentBp >= 1700) return 0.25;
+  if (currentBp >= 1500) return 0.45;
+  if (currentBp >= 1250) return 0.6;
+  if (currentBp >= 1000) return 0.75;
+  return 1.0;
+}
+
+export function calculateAwardedBp(baseReward: number, currentBp: number = 100): { awardedBp: number; multiplier: number } {
+  const multiplier = getBpMultiplier(currentBp);
+  const awardedBp = Math.round(baseReward * multiplier);
+  return { awardedBp, multiplier };
+}
+
+/**
+ * Approve a submission → sets submission status to 'approved', bounty to 'completed', awards scaled BP to hunter based on current BP tier, and notifies hunter
  */
 export async function approveSubmission(
   bountyId: string,
@@ -162,11 +188,25 @@ export async function approveSubmission(
   beatmapTitle?: string,
   rewardAmount?: number
 ): Promise<void> {
-  const amountToAward = rewardAmount || 100;
+  const baseReward = rewardAmount || 100;
+  let amountToAward = baseReward;
+  let activeMultiplier = 1.0;
+
+  if (hunterId) {
+    const hunterProfile = await getUserProfile(hunterId);
+    const currentBp = hunterProfile?.bountyPoints || 100;
+    const calc = calculateAwardedBp(baseReward, currentBp);
+    amountToAward = calc.awardedBp;
+    activeMultiplier = calc.multiplier;
+  }
 
   await updateDoc(
     doc(db, BOUNTIES_COL, bountyId, 'submissions', submissionId),
-    { status: 'approved' }
+    {
+      status: 'approved',
+      awardedBp: amountToAward,
+      bpMultiplier: activeMultiplier,
+    }
   );
   await updateDoc(doc(db, BOUNTIES_COL, bountyId), {
     status: 'completed',
@@ -174,7 +214,7 @@ export async function approveSubmission(
   });
 
   if (hunterId) {
-    // Award the actual bounty reward amount (e.g. +250 BP) to hunter + record timestamp for tie-breaker
+    // Award the actual scaled bounty reward amount to hunter + record timestamp for tie-breaker
     const nowIso = new Date().toISOString();
     updateDoc(doc(db, USERS_COL, hunterId), {
       bountyPoints: increment(amountToAward),
@@ -183,12 +223,13 @@ export async function approveSubmission(
       lastBpUpdatedAtServer: serverTimestamp(),
     }).catch(() => {});
 
-    // Send success notification to hunter
+    // Send success notification to hunter with multiplier details if scaled
+    const multiplierNote = activeMultiplier !== 1.0 ? ` (${activeMultiplier}x multiplier)` : '';
     sendNotification({
       userId: hunterId,
       type: 'proof_approved',
       title: '🎉 Quest Cleared! (Approved)',
-      message: `Your proof for ${beatmapTitle || 'the bounty'} was approved! You earned +${amountToAward} BP!`,
+      message: `Your proof for ${beatmapTitle || 'the bounty'} was approved! You earned +${amountToAward} BP!${multiplierNote}`,
       bountyId,
     }).catch(() => {});
   }
@@ -227,7 +268,7 @@ export async function rejectSubmission(
 /**
  * Delete a submission from a bounty.
  * If the submission was approved:
- * 1. Deducts reward BP from the hunter's user record in Firestore (-rewardAmount BP).
+ * 1. Deducts exact awarded BP from the hunter's user record in Firestore (-awardedBp).
  * 2. Decrements the hunter's bountiesClaimedCount (-1).
  * 3. Reverts the parent bounty status back to 'open'.
  * 4. Updates leaderboard real-time state.
@@ -242,23 +283,27 @@ export async function deleteSubmission(
   let hunterId: string | undefined = undefined;
   let hunterUsername: string | undefined = undefined;
   let isApproved = false;
+  let awardedBpToDelete: number | undefined = undefined;
 
   if (subSnap.exists()) {
     const subData = subSnap.data() as Submission;
     hunterId = subData.hunterId;
     hunterUsername = subData.hunterUsername;
     isApproved = subData.status === 'approved';
+    awardedBpToDelete = subData.awardedBp;
   }
 
-  // Fetch parent bounty to get reward amount
+  // Fetch parent bounty to get fallback reward amount if awardedBp is not stored
   const bountyRef = doc(db, BOUNTIES_COL, bountyId);
   const bountySnap = await getDoc(bountyRef);
-  let rewardAmount = 100;
+  let baseReward = 100;
 
   if (bountySnap.exists()) {
     const bData = bountySnap.data() as Bounty;
-    rewardAmount = bData.reward?.amount || 100;
+    baseReward = bData.reward?.amount || 100;
   }
+
+  const finalDeductAmount = awardedBpToDelete !== undefined ? awardedBpToDelete : baseReward;
 
   // Delete submission doc
   await deleteDoc(subRef);
@@ -287,7 +332,7 @@ export async function deleteSubmission(
       const currentBp = userData.bountyPoints || 0;
       const currentCount = userData.bountiesClaimedCount || 0;
 
-      const newBp = Math.max(0, currentBp - rewardAmount);
+      const newBp = Math.max(0, currentBp - finalDeductAmount);
       const newCount = Math.max(0, currentCount - 1);
 
       await updateDoc(userRef, {
@@ -540,7 +585,8 @@ export async function deleteBounty(bountyId: string): Promise<void> {
         const currentBp = userData.bountyPoints || 0;
         const currentCount = userData.bountiesClaimedCount || 0;
 
-        const newBp = Math.max(0, currentBp - rewardAmount);
+        const deductBp = sData.awardedBp !== undefined ? sData.awardedBp : rewardAmount;
+        const newBp = Math.max(0, currentBp - deductBp);
         const newCount = Math.max(0, currentCount - 1);
 
         await updateDoc(userRef, {

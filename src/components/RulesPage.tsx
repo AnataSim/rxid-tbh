@@ -15,6 +15,16 @@ export const RulesPage: React.FC = () => {
     { title: 'Guaranteed Payout', body: 'Once approved, BP are transferred immediately. No reversals.' },
   ];
 
+  const bpTiers = [
+    { range: '100 – 999 BP', multiplier: 'x1.00', pct: '100%', tag: 'Standard' },
+    { range: '1,000 – 1,249 BP', multiplier: 'x0.75', pct: '75%', tag: 'Tier 1' },
+    { range: '1,250 – 1,499 BP', multiplier: 'x0.60', pct: '60%', tag: 'Tier 2' },
+    { range: '1,500 – 1,699 BP', multiplier: 'x0.45', pct: '45%', tag: 'Tier 3' },
+    { range: '1,700 – 1,799 BP', multiplier: 'x0.25', pct: '25%', tag: 'Tier 4' },
+    { range: '1,800 – 1,849 BP', multiplier: 'x0.15', pct: '15%', tag: 'High Cap' },
+    { range: '1,850+ BP', multiplier: 'x0.80', pct: '80%', tag: 'Platinum Elite' },
+  ];
+
   return (
     <div className="anim-in" style={{ maxWidth: 820, margin: '0 auto', paddingTop: 32, paddingBottom: 48 }}>
       {/* Header */}
@@ -31,7 +41,7 @@ export const RulesPage: React.FC = () => {
       </div>
 
       {/* Cards */}
-      <div className="rules-grid">
+      <div className="rules-grid" style={{ marginBottom: 24 }}>
         {/* Givers */}
         <div className="rules-card">
           <div className="rules-card-head">
@@ -82,6 +92,55 @@ export const RulesPage: React.FC = () => {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      {/* BP Recalculation Multiplier Table Card */}
+      <div className="rules-card" style={{ padding: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+          <div className="rules-card-icon" style={{ background: 'rgba(251, 191, 36, 0.15)', color: 'var(--gold)' }}>
+            <Trophy size={16} />
+          </div>
+          <div>
+            <div style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>BP Award Recalculation Multipliers</div>
+            <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 2 }}>
+              When a bounty is approved, the awarded BP is scaled based on your current BP range tier.
+            </div>
+          </div>
+        </div>
+
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+          gap: 10,
+        }}>
+          {bpTiers.map((t, i) => (
+            <div key={i} style={{
+              background: 'var(--bg-1)',
+              border: '1px solid var(--border)',
+              borderRadius: 'var(--radius)',
+              padding: '10px 14px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+            }}>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)' }}>{t.range}</div>
+                <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 2 }}>{t.tag}</div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <span style={{
+                  fontFamily: 'var(--mono)',
+                  fontSize: 13,
+                  fontWeight: 800,
+                  color: t.multiplier === 'x1.00' ? 'var(--green)' : t.multiplier === 'x0.80' ? '#22d3ee' : 'var(--gold)',
+                }}>
+                  {t.multiplier}
+                </span>
+                <div style={{ fontSize: 10, color: 'var(--text-3)' }}>({t.pct})</div>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

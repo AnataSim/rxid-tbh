@@ -55,6 +55,8 @@ export interface Submission {
   status: 'pending' | 'approved' | 'rejected';
   submittedAt: string;
   rejectionReason?: string;
+  awardedBp?: number;
+  bpMultiplier?: number;
 }
 
 export interface Bounty {

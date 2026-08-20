@@ -1,4 +1,5 @@
 import type { BeatmapMetadata } from '../types/bounty';
+import { cacheService } from './cacheService';
 
 /**
  * Extracts beatmapset ID and beatmap ID from any osu! URL format
@@ -57,6 +58,9 @@ export function formatDuration(seconds: number): string {
   return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 }
 
+const BEATMAP_CACHE_TTL = 24 * 60 * 60 * 1000; // 24 Hours
+const V4RX_PROFILE_CACHE_TTL = 60 * 60 * 1000; // 1 Hour
+
 /**
  * Fetches real beatmap metadata from public mirror APIs (osu.direct & Catboy), with robust fallback
  */
@@ -65,6 +69,20 @@ export async function fetchBeatmapMetadata(urlOrId: string): Promise<BeatmapMeta
   const validSetId = setId || 2275685;
   const validMapId = beatmapId || 4831201;
 
+  const cacheKey = `bm_${validSetId}_${validMapId}`;
+  const cached = cacheService.get<BeatmapMetadata>(cacheKey);
+  if (cached && cached.title && !cached.title.startsWith('Beatmap Set #')) {
+    return cached;
+  }
+
+  const result = await fetchBeatmapMetadataInternal(validSetId, validMapId);
+  if (result && result.title && !result.title.startsWith('Beatmap Set #')) {
+    cacheService.set(cacheKey, result, BEATMAP_CACHE_TTL);
+  }
+  return result;
+}
+
+async function fetchBeatmapMetadataInternal(validSetId: number, validMapId: number): Promise<BeatmapMetadata> {
   const covers = getOsuCoverUrls(validSetId);
 
   // 1. Try Provider A: osu.direct API
@@ -266,10 +284,28 @@ export interface V4rxFetchedProfile {
 }
 
 /**
- * Fetches user profile data from v4rx.me by ID or Username
+ * Fetches user profile data from v4rx.me by ID or Username with caching
  */
 export async function fetchV4rxProfile(userIdOrName: string): Promise<V4rxFetchedProfile> {
   const clean = userIdOrUrl(userIdOrName);
+  if (!clean) {
+    return { id: '85', username: 'Sim', avatarUrl: '', countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 81, v4rxPp: 15000, v4rxAccuracy: 95.0 };
+  }
+
+  const cacheKey = `v4rx_prof_${clean.toLowerCase()}`;
+  const cached = cacheService.get<V4rxFetchedProfile>(cacheKey);
+  if (cached && cached.username && !cached.username.startsWith('Player #')) {
+    return cached;
+  }
+
+  const result = await fetchV4rxProfileInternal(clean);
+  if (result && result.username && !result.username.startsWith('Player #')) {
+    cacheService.set(cacheKey, result, V4RX_PROFILE_CACHE_TTL);
+  }
+  return result;
+}
+
+async function fetchV4rxProfileInternal(clean: string): Promise<V4rxFetchedProfile> {
   const isNumeric = /^\d+$/.test(clean);
 
   // 1. Try Vercel Serverless Function /api/v4rx-profile (0 CORS restrictions on Vercel deployment!)
