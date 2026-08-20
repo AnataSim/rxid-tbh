@@ -8,6 +8,7 @@ import {
 import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import type { User } from '../types/bounty';
+import { fetchV4rxProfile } from './osuApi';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -219,6 +220,29 @@ export async function fetchUserProfile(uid: string): Promise<User | null> {
   if (profile.username && profile.username.trim().toLowerCase() === 'sim' && profile.role !== 'bounty_giver') {
     profile.role = 'bounty_giver';
     setDoc(doc(db, 'users', uid), { role: 'bounty_giver' }, { merge: true }).catch(() => {});
+  }
+
+  // Auto-heal profiles stored with fallback "Player #..." or missing data
+  if (profile.osuId || (profile.username && profile.username.startsWith('Player #'))) {
+    const targetId = profile.osuId || profile.username.replace('Player #', '').trim();
+    if (targetId) {
+      fetchV4rxProfile(targetId).then(fresh => {
+        if (fresh && fresh.username && !fresh.username.startsWith('Player #')) {
+          profile.username = fresh.username;
+          profile.avatarUrl = fresh.avatarUrl;
+          profile.v4rxRank = fresh.v4rxRank;
+          profile.v4rxPp = fresh.v4rxPp;
+          profile.v4rxAccuracy = fresh.v4rxAccuracy;
+          setDoc(doc(db, 'users', uid), {
+            username: fresh.username,
+            avatarUrl: fresh.avatarUrl,
+            v4rxRank: fresh.v4rxRank,
+            v4rxPp: fresh.v4rxPp,
+            v4rxAccuracy: fresh.v4rxAccuracy,
+          }, { merge: true }).catch(() => {});
+        }
+      }).catch(() => {});
+    }
   }
 
   // Fallbacks for missing fields

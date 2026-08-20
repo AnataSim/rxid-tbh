@@ -272,32 +272,50 @@ export async function fetchV4rxProfile(userIdOrName: string): Promise<V4rxFetche
   const clean = userIdOrUrl(userIdOrName);
   const isNumeric = /^\d+$/.test(clean);
 
-  // 1. Try fetching real HTML profile via CORS proxies
+  // 1. Try Vercel Serverless Function /api/v4rx-profile (0 CORS restrictions on Vercel deployment!)
+  try {
+    const serverlessRes = await fetch(`/api/v4rx-profile?id=${encodeURIComponent(clean)}`);
+    if (serverlessRes.ok) {
+      const data = await serverlessRes.json();
+      if (data && data.username && !data.username.startsWith('Player #')) {
+        return data as V4rxFetchedProfile;
+      }
+    }
+  } catch (err) {
+    // Fallback to client proxies if serverless endpoint is unavailable
+  }
+
+  // 2. Try fetching real HTML profile via CORS proxies
   if (isNumeric) {
     const urlsToTry = [
+      `https://api.allorigins.win/get?url=${encodeURIComponent('https://v4rx.me/user/profile.php?id=' + clean)}`,
       `https://corsproxy.io/?https://v4rx.me/user/profile.php?id=${clean}`,
-      `https://v4rx.me/user/profile.php?id=${clean}`,
     ];
 
     for (const url of urlsToTry) {
       try {
         const res = await fetch(url);
         if (res.ok) {
-          const text = await res.text();
-          const titleMatch   = text.match(/<title>(.*?)'s Profile<\/title>/i);
-          const ppMatch      = text.match(/(\d+)pp<\/div>/i);
-          const accMatch     = text.match(/([\d.]+)%<\/div>/i);
-          const rankMatch    = text.match(/<i class="fas fa-hashtag mr-1"><\/i>([\d\s\/]+)/i);
+          const raw = await res.json().catch(() => null);
+          const text = raw?.contents || (await res.text().catch(() => ''));
+
+          const titleMatch   = text.match(/<title>(.*?)'s Profile<\/title>/i) || text.match(/<title>(.*?)<\/title>/i);
+          const ppMatch      = text.match(/(\d+)pp/i);
+          const accMatch     = text.match(/([\d.]+)%/i);
+          const rankMatch    = text.match(/#(\d+)/i) || text.match(/fa-hashtag[^>]*><\/i>\s*(\d+)/i);
           const countryMatch = text.match(/flag-icon-([a-z]{2})/i) || text.match(/country[=_"']([a-z]{2})/i);
 
           if (titleMatch) {
-            const username = titleMatch[1].trim();
+            let username = titleMatch[1].replace(/'s Profile/i, '').trim();
+            if (!username || username.toLowerCase().includes('profile') || username.toLowerCase().includes('v4rx')) {
+              username = `Player #${clean}`;
+            }
+
             const pp = ppMatch ? parseInt(ppMatch[1], 10) : 15000;
             const acc = accMatch ? parseFloat(accMatch[1]) : 95.0;
             let rank = 81;
             if (rankMatch) {
-              const r = rankMatch[1].split('/')[0].trim();
-              rank = parseInt(r, 10) || 81;
+              rank = parseInt(rankMatch[1], 10) || 81;
             }
 
             const cCode = countryMatch ? countryMatch[1].toUpperCase() : 'ID';
