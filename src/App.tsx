@@ -266,8 +266,9 @@ export function App() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="banner-action-btn btn-steam-green"
+                    title="Download v4rx"
                   >
-                    <Download size={14} /> Download v4rx
+                    <Download size={15} /> <span className="banner-action-btn-text">Download v4rx</span>
                   </a>
 
                   <a
@@ -275,8 +276,9 @@ export function App() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="banner-action-btn btn-dark-outline"
+                    title="Beatmaps"
                   >
-                    <Globe size={14} /> Beatmaps
+                    <Globe size={15} /> <span className="banner-action-btn-text">Beatmaps</span>
                   </a>
 
                   <a
@@ -284,8 +286,9 @@ export function App() {
                     target="_blank"
                     rel="noopener noreferrer"
                     className="banner-action-btn btn-discord-dark"
+                    title="GitHub"
                   >
-                    <GithubIcon size={14} /> GitHub
+                    <GithubIcon size={15} /> <span className="banner-action-btn-text">GitHub</span>
                   </a>
                 </div>
               </div>
@@ -370,21 +373,11 @@ export function App() {
                 {activeRole === 'bounty_giver' && (
                   <button
                     onClick={() => setIsCreateOpen(true)}
-                    className="btn btn-primary"
+                    className="btn btn-primary btn-post-bounty-full-bar"
                     title="Post Bounty (Giver Only)"
-                    style={{
-                      width: 52,
-                      height: 52,
-                      padding: 0,
-                      borderRadius: 14,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      flexShrink: 0,
-                      boxShadow: '0 4px 14px rgba(255, 77, 141, 0.35)',
-                    }}
                   >
-                    <Plus size={22} color="#ffffff" />
+                    <Plus size={20} color="#ffffff" />
+                    <span className="btn-post-label">Post Bounty Pertama</span>
                   </button>
                 )}
               </div>
