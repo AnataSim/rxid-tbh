@@ -7,6 +7,7 @@ import { db } from '../lib/firebase';
 import type { Bounty, Submission, User } from '../types/bounty';
 import { sendNotification } from './notificationService';
 import { fetchBeatmapMetadata } from './osuApi';
+import { cacheService } from './cacheService';
 
 // ── Collections ───────────────────────────────────────────────────────────────
 const BOUNTIES_COL = 'bounties';
@@ -33,47 +34,51 @@ export function subscribeToBounties(
   );
 
   return onSnapshot(q, async (snapshot) => {
-    const bounties: Bounty[] = [];
+    // Process all bounty documents IN PARALLEL for ultra-fast load times
+    const bounties: Bounty[] = await Promise.all(
+      snapshot.docs.map(async (docSnap) => {
+        const data = docSnap.data();
 
-    for (const docSnap of snapshot.docs) {
-      const data = docSnap.data();
+        // Fetch submissions subcollection in parallel
+        const subSnap = await getDocs(
+          collection(db, BOUNTIES_COL, docSnap.id, 'submissions')
+        );
+        const submissions: Submission[] = subSnap.docs.map(s => ({
+          id: s.id,
+          ...(s.data() as Omit<Submission, 'id'>),
+        }));
 
-      // Fetch submissions subcollection
-      const subSnap = await getDocs(
-        collection(db, BOUNTIES_COL, docSnap.id, 'submissions')
-      );
-      const submissions: Submission[] = subSnap.docs.map(s => ({
-        id: s.id,
-        ...(s.data() as Omit<Submission, 'id'>),
-      }));
+        let beatmap = data.beatmap;
+        // Auto-enrich fallback beatmap titles or outdated star/duration metadata in Firestore
+        if (
+          !beatmap ||
+          !beatmap.title ||
+          beatmap.title.startsWith('Beatmap Set #') ||
+          beatmap.artist === 'osu! Artist' ||
+          beatmap.starRating === 7.5 ||
+          beatmap.starRating === 7.49 ||
+          beatmap.durationFormatted === '02:40'
+        ) {
+          const setId = beatmap?.beatmapsetId || 465035;
+          const mapId = beatmap?.beatmapId;
+          const queryId = mapId ? `${setId}#osu/${mapId}` : setId.toString();
+          const fresh = await fetchBeatmapMetadata(queryId);
+          beatmap = { ...beatmap, ...fresh };
+          // Asynchronously update Firestore document with 100% fresh real metadata
+          updateDoc(doc(db, BOUNTIES_COL, docSnap.id), { beatmap }).catch(() => {});
+        }
 
-      let beatmap = data.beatmap;
-      // Auto-enrich fallback beatmap titles or outdated star/duration metadata in Firestore
-      if (
-        !beatmap ||
-        !beatmap.title ||
-        beatmap.title.startsWith('Beatmap Set #') ||
-        beatmap.artist === 'osu! Artist' ||
-        beatmap.starRating === 7.5 ||
-        beatmap.starRating === 7.49 ||
-        beatmap.durationFormatted === '02:40'
-      ) {
-        const setId = beatmap?.beatmapsetId || 465035;
-        const mapId = beatmap?.beatmapId;
-        const queryId = mapId ? `${setId}#osu/${mapId}` : setId.toString();
-        const fresh = await fetchBeatmapMetadata(queryId);
-        beatmap = { ...beatmap, ...fresh };
-        // Asynchronously update Firestore document with 100% fresh real metadata
-        updateDoc(doc(db, BOUNTIES_COL, docSnap.id), { beatmap }).catch(() => {});
-      }
+        return {
+          id: docSnap.id,
+          ...(data as Omit<Bounty, 'id' | 'submissions'>),
+          beatmap,
+          submissions,
+        };
+      })
+    );
 
-      bounties.push({
-        id: docSnap.id,
-        ...(data as Omit<Bounty, 'id' | 'submissions'>),
-        beatmap,
-        submissions,
-      });
-    }
+    // Save fresh bounties snapshot to persistent cache
+    cacheService.set('bountyosu_bounties_list', bounties, 60 * 60 * 1000);
 
     callback(bounties);
   });

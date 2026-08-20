@@ -32,6 +32,7 @@ import {
   Search, Plus, Trophy, Coins, CheckCircle2, Target,
   SlidersHorizontal, Loader2, Globe, Download, ShieldCheck,
 } from 'lucide-react';
+import { cacheService } from './services/cacheService';
 import { SecurityBadgeModal } from './components/SecurityBadgeModal';
 
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
@@ -52,8 +53,13 @@ export function App() {
   const { currentUser, loading: authLoading, activeRole } = useAuth();
   const isGiver = activeRole === 'bounty_giver';
 
-  const [bounties, setBounties] = useState<Bounty[]>([]);
-  const [dbLoading, setDbLoading]     = useState(true);
+  const [bounties, setBounties] = useState<Bounty[]>(() => {
+    return cacheService.get<Bounty[]>('bountyosu_bounties_list') || [];
+  });
+  const [dbLoading, setDbLoading] = useState<boolean>(() => {
+    const cached = cacheService.get<Bounty[]>('bountyosu_bounties_list');
+    return !cached || cached.length === 0;
+  });
   const [activeTab, setActiveTab]     = useState<'bounties' | 'leaderboard' | 'titles' | 'rules'>('bounties');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');

@@ -82,115 +82,121 @@ export async function fetchBeatmapMetadata(urlOrId: string): Promise<BeatmapMeta
   return result;
 }
 
+async function fetchWithTimeout(url: string, timeoutMs: number = 2000): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    return res;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    throw err;
+  }
+}
+
+async function fetchFromOsuDirect(validSetId: number, validMapId: number, covers: ReturnType<typeof getOsuCoverUrls>): Promise<BeatmapMetadata> {
+  const res = await fetchWithTimeout(`https://osu.direct/api/v2/s/${validSetId}`, 2000);
+  if (!res.ok) throw new Error('osu.direct failed');
+  const data = await res.json();
+  if (!data || (!data.title && !data.title_unicode)) throw new Error('Invalid metadata');
+  const maps = data.beatmaps || [];
+  const targetMap = maps.find((m: any) => m.id === validMapId) || maps[0];
+  const star = targetMap ? (targetMap.difficulty_rating || targetMap.star_rating || 5.95) : 5.95;
+  const duration = targetMap ? (targetMap.total_length || targetMap.hit_length || 284) : 284;
+  return {
+    beatmapsetId: validSetId,
+    beatmapId: validMapId,
+    title: data.title || data.title_unicode || `Beatmap Set #${validSetId}`,
+    artist: data.artist || data.artist_unicode || 'osu! Artist',
+    mapper: data.creator || data.mapper || 'osu! Mapper',
+    starRating: parseFloat(Number(star).toFixed(2)),
+    durationSeconds: duration,
+    durationFormatted: formatDuration(duration),
+    playCount: data.play_count || 1000,
+    status: (data.status?.charAt(0).toUpperCase() + data.status?.slice(1)) as any || 'Ranked',
+    coverUrl: covers.coverUrl,
+    cardUrl: covers.cardUrl,
+    slimCoverUrl: covers.slimCoverUrl,
+    postedDate: new Date(data.submitted_date || Date.now()).toUTCString(),
+    updatedDate: new Date(data.last_updated || Date.now()).toUTCString(),
+    mode: 'osu',
+  };
+}
+
+async function fetchFromCatboy(validSetId: number, validMapId: number, covers: ReturnType<typeof getOsuCoverUrls>): Promise<BeatmapMetadata> {
+  const res = await fetchWithTimeout(`https://catboy.best/api/v2/s/${validSetId}`, 2000);
+  if (!res.ok) throw new Error('Catboy failed');
+  const data = await res.json();
+  if (!data || (!data.title && !data.title_unicode)) throw new Error('Invalid metadata');
+  const maps = data.beatmaps || [];
+  const targetMap = maps.find((m: any) => m.id === validMapId) || maps[0];
+  const star = targetMap ? (targetMap.difficulty_rating || targetMap.star_rating || 5.95) : 5.95;
+  const duration = targetMap ? (targetMap.total_length || targetMap.hit_length || 284) : 284;
+  return {
+    beatmapsetId: validSetId,
+    beatmapId: validMapId,
+    title: data.title || data.title_unicode || `Beatmap Set #${validSetId}`,
+    artist: data.artist || data.artist_unicode || 'osu! Artist',
+    mapper: data.creator || data.mapper || 'osu! Mapper',
+    starRating: parseFloat(Number(star).toFixed(2)),
+    durationSeconds: duration,
+    durationFormatted: formatDuration(duration),
+    playCount: data.play_count || 1000,
+    status: (data.status?.charAt(0).toUpperCase() + data.status?.slice(1)) as any || 'Ranked',
+    coverUrl: covers.coverUrl,
+    cardUrl: covers.cardUrl,
+    slimCoverUrl: covers.slimCoverUrl,
+    postedDate: new Date(data.submitted_date || Date.now()).toUTCString(),
+    updatedDate: new Date(data.last_updated || Date.now()).toUTCString(),
+    mode: 'osu',
+  };
+}
+
+async function fetchFromChimu(validSetId: number, validMapId: number, covers: ReturnType<typeof getOsuCoverUrls>): Promise<BeatmapMetadata> {
+  const res = await fetchWithTimeout(`https://api.chimu.moe/v1/set/${validSetId}`, 2000);
+  if (!res.ok) throw new Error('Chimu failed');
+  const data = await res.json();
+  if (!data || (!data.Title && !data.TitleUnicode)) throw new Error('Invalid metadata');
+  const maps = data.Children || data.beatmaps || [];
+  const targetMap = maps.find((m: any) => m.BeatmapId === validMapId) || maps[0];
+  const star = targetMap ? (targetMap.DifficultyRating || targetMap.star_rating || 5.95) : 5.95;
+  const duration = targetMap ? (targetMap.TotalLength || targetMap.total_length || 284) : 284;
+  return {
+    beatmapsetId: validSetId,
+    beatmapId: validMapId,
+    title: data.Title || data.TitleUnicode || `Beatmap Set #${validSetId}`,
+    artist: data.Artist || data.ArtistUnicode || 'osu! Artist',
+    mapper: data.Creator || 'osu! Mapper',
+    starRating: parseFloat(Number(star).toFixed(2)),
+    durationSeconds: duration,
+    durationFormatted: formatDuration(duration),
+    playCount: data.PlayCount || 1000,
+    status: 'Ranked',
+    coverUrl: covers.coverUrl,
+    cardUrl: covers.cardUrl,
+    slimCoverUrl: covers.slimCoverUrl,
+    postedDate: 'Sat, 23 May 2026 01:59:45 GMT',
+    updatedDate: 'Sat, 15 Aug 2026 21:04:48 GMT',
+    mode: 'osu',
+  };
+}
+
 async function fetchBeatmapMetadataInternal(validSetId: number, validMapId: number): Promise<BeatmapMetadata> {
   const covers = getOsuCoverUrls(validSetId);
 
-  // 1. Try Provider A: osu.direct API
+  // Parallel Provider Racing (osu.direct, Catboy, Chimu) - whichever responds first wins!
   try {
-    const res = await fetch(`https://osu.direct/api/v2/s/${validSetId}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data && (data.title || data.title_unicode)) {
-        const maps = data.beatmaps || [];
-        const targetMap = maps.find((m: any) => m.id === validMapId) || maps[0];
-        const star = targetMap ? (targetMap.difficulty_rating || targetMap.star_rating || 5.95) : 5.95;
-        const duration = targetMap ? (targetMap.total_length || targetMap.hit_length || 284) : 284;
-
-        return {
-          beatmapsetId: validSetId,
-          beatmapId: validMapId,
-          title: data.title || data.title_unicode || `Beatmap Set #${validSetId}`,
-          artist: data.artist || data.artist_unicode || 'osu! Artist',
-          mapper: data.creator || data.mapper || 'osu! Mapper',
-          starRating: parseFloat(Number(star).toFixed(2)),
-          durationSeconds: duration,
-          durationFormatted: formatDuration(duration),
-          playCount: data.play_count || 1000,
-          status: (data.status?.charAt(0).toUpperCase() + data.status?.slice(1)) as any || 'Ranked',
-          coverUrl: covers.coverUrl,
-          cardUrl: covers.cardUrl,
-          slimCoverUrl: covers.slimCoverUrl,
-          postedDate: new Date(data.submitted_date || Date.now()).toUTCString(),
-          updatedDate: new Date(data.last_updated || Date.now()).toUTCString(),
-          mode: 'osu',
-        };
-      }
-    }
+    return await Promise.any([
+      fetchFromOsuDirect(validSetId, validMapId, covers),
+      fetchFromCatboy(validSetId, validMapId, covers),
+      fetchFromChimu(validSetId, validMapId, covers),
+    ]);
   } catch (err) {
-    console.warn('osu.direct API lookup failed:', err);
+    console.warn('All parallel beatmap mirror lookups timed out or failed, falling back to presets…');
   }
 
-  // 2. Try Provider B: Catboy API (/s/ endpoint)
-  try {
-    const res = await fetch(`https://catboy.best/api/v2/s/${validSetId}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data && (data.title || data.title_unicode)) {
-        const maps = data.beatmaps || [];
-        const targetMap = maps.find((m: any) => m.id === validMapId) || maps[0];
-        const star = targetMap ? (targetMap.difficulty_rating || targetMap.star_rating || 5.95) : 5.95;
-        const duration = targetMap ? (targetMap.total_length || targetMap.hit_length || 284) : 284;
-
-        return {
-          beatmapsetId: validSetId,
-          beatmapId: validMapId,
-          title: data.title || data.title_unicode || `Beatmap Set #${validSetId}`,
-          artist: data.artist || data.artist_unicode || 'osu! Artist',
-          mapper: data.creator || data.mapper || 'osu! Mapper',
-          starRating: parseFloat(Number(star).toFixed(2)),
-          durationSeconds: duration,
-          durationFormatted: formatDuration(duration),
-          playCount: data.play_count || 1000,
-          status: (data.status?.charAt(0).toUpperCase() + data.status?.slice(1)) as any || 'Ranked',
-          coverUrl: covers.coverUrl,
-          cardUrl: covers.cardUrl,
-          slimCoverUrl: covers.slimCoverUrl,
-          postedDate: new Date(data.submitted_date || Date.now()).toUTCString(),
-          updatedDate: new Date(data.last_updated || Date.now()).toUTCString(),
-          mode: 'osu',
-        };
-      }
-    }
-  } catch (err) {
-    console.warn('Catboy /s/ API lookup failed:', err);
-  }
-
-  // 3. Try Provider C: Chimu API
-  try {
-    const res = await fetch(`https://api.chimu.moe/v1/set/${validSetId}`);
-    if (res.ok) {
-      const data = await res.json();
-      if (data && (data.Title || data.TitleUnicode)) {
-        const maps = data.Children || data.beatmaps || [];
-        const targetMap = maps.find((m: any) => m.BeatmapId === validMapId) || maps[0];
-        const star = targetMap ? (targetMap.DifficultyRating || targetMap.star_rating || 5.95) : 5.95;
-        const duration = targetMap ? (targetMap.TotalLength || targetMap.total_length || 284) : 284;
-
-        return {
-          beatmapsetId: validSetId,
-          beatmapId: validMapId,
-          title: data.Title || data.TitleUnicode || `Beatmap Set #${validSetId}`,
-          artist: data.Artist || data.ArtistUnicode || 'osu! Artist',
-          mapper: data.Creator || 'osu! Mapper',
-          starRating: parseFloat(Number(star).toFixed(2)),
-          durationSeconds: duration,
-          durationFormatted: formatDuration(duration),
-          playCount: data.PlayCount || 1000,
-          status: 'Ranked',
-          coverUrl: covers.coverUrl,
-          cardUrl: covers.cardUrl,
-          slimCoverUrl: covers.slimCoverUrl,
-          postedDate: 'Sat, 23 May 2026 01:59:45 GMT',
-          updatedDate: 'Sat, 15 Aug 2026 21:04:48 GMT',
-          mode: 'osu',
-        };
-      }
-    }
-  } catch (err) {
-    console.warn('Chimu API lookup failed:', err);
-  }
-
-  // 4. Presets fallback for popular offline maps
+  // Presets fallback for popular offline maps
   const presets: Record<number, { title: string; artist: string; mapper: string; stars?: number; duration?: number; status?: string }> = {
     896080: {
       title: 'Tsukinami',
@@ -249,7 +255,7 @@ async function fetchBeatmapMetadataInternal(validSetId: number, validMapId: numb
     };
   }
 
-  // 5. Final Fallback
+  // Final Fallback
   return {
     beatmapsetId: validSetId,
     beatmapId: validMapId,
