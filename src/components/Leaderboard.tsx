@@ -8,9 +8,16 @@ import { CowboyRankSquareFrame } from './CowboyRankBadge';
 import { fetchV4rxProfile } from '../services/osuApi';
 import { BugHunterIcon } from './BugHunterBadge';
 
+import { cacheService } from '../services/cacheService';
+
 export const Leaderboard: React.FC = () => {
-  const [players, setPlayers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [players, setPlayers] = useState<User[]>(() => {
+    return cacheService.get<User[]>('bountyosu_leaderboard_cache') || [];
+  });
+  const [loading, setLoading] = useState(() => {
+    const cached = cacheService.get<User[]>('bountyosu_leaderboard_cache');
+    return !cached || cached.length === 0;
+  });
   const [refreshing, setRefreshing] = useState(false);
 
   const loadLeaderboardData = useCallback(async () => {
@@ -53,8 +60,10 @@ export const Leaderboard: React.FC = () => {
       });
 
       setPlayers(cleanList);
+      cacheService.set('bountyosu_leaderboard_cache', cleanList, 300000);
+      setLoading(false);
 
-      // Auto-sync real v4rx.me profile data (pp, rank, acc, username, avatar) for players in Leaderboard
+      // Auto-sync real v4rx.me profile data in background without blocking UI
       const syncPromises = cleanList.map(async player => {
         const idToSync = player.osuId || (player.username && player.username.startsWith('Player #') ? player.username.replace('Player #', '') : null);
         if (idToSync) {
@@ -88,10 +97,9 @@ export const Leaderboard: React.FC = () => {
           }
         }
       });
-      await Promise.all(syncPromises).catch(() => {});
+      Promise.all(syncPromises).catch(() => {});
     } catch (err) {
       console.error('Leaderboard fetch error:', err);
-    } finally {
       setLoading(false);
     }
   }, []);

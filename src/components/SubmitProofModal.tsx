@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { Bounty, User, Submission } from '../types/bounty';
-import { X, Image as Img, Upload, Link as LinkIcon, MessageSquare, Send, Coins, FileCheck } from 'lucide-react';
+import { X, Image as Img, Upload, Link as LinkIcon, MessageSquare, Send, Coins, FileCheck, UserX } from 'lucide-react';
 
 interface SubmitProofModalProps {
   bounty: Bounty; currentUser: User;
@@ -52,6 +52,11 @@ export const SubmitProofModal: React.FC<SubmitProofModalProps> = ({
   const [comment, setComment] = useState('');
   const [fileName, setFileName] = useState('');
 
+  const isBanned = Boolean(
+    (bounty.bannedHunters && bounty.bannedHunters.includes(currentUser.id)) ||
+    (bounty.bannedUsernames && bounty.bannedUsernames.some(u => u.toLowerCase() === (currentUser.username || '').toLowerCase()))
+  );
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -70,7 +75,7 @@ export const SubmitProofModal: React.FC<SubmitProofModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!proofUrl) return;
+    if (!proofUrl || isBanned) return;
     onSubmit({
       bountyId: bounty.id,
       hunterId: currentUser.id,
@@ -125,6 +130,19 @@ export const SubmitProofModal: React.FC<SubmitProofModalProps> = ({
             </div>
           </div>
 
+          {/* Ban Warning Box */}
+          {isBanned && (
+            <div style={{
+              padding: '12px 14px', borderRadius: 'var(--radius)',
+              background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#f87171', fontSize: 12, fontWeight: 700,
+              display: 'flex', alignItems: 'center', gap: 8, marginBottom: 16,
+            }}>
+              <UserX size={16} />
+              <span>You have been restricted by the Bounty Giver from submitting proof to this quest.</span>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
             {/* Direct Image File Upload */}
             <div className="form-group">
@@ -141,12 +159,13 @@ export const SubmitProofModal: React.FC<SubmitProofModalProps> = ({
                 <input
                   type="file"
                   accept="image/*"
+                  disabled={isBanned}
                   onChange={handleFileUpload}
                   style={{
                     position: 'absolute',
                     inset: 0,
                     opacity: 0,
-                    cursor: 'pointer',
+                    cursor: isBanned ? 'not-allowed' : 'pointer',
                     width: '100%',
                     height: '100%',
                   }}
@@ -166,6 +185,7 @@ export const SubmitProofModal: React.FC<SubmitProofModalProps> = ({
               <label className="form-label"><LinkIcon size={11} /> Or Screenshot Image URL</label>
               <input
                 type="text"
+                disabled={isBanned}
                 value={fileName ? '' : proofUrl}
                 onChange={e => { setFileName(''); setProofUrl(e.target.value); }}
                 placeholder="https://imgur.com/..."
@@ -196,20 +216,20 @@ export const SubmitProofModal: React.FC<SubmitProofModalProps> = ({
 
             <div className="form-group">
               <label className="form-label"><LinkIcon size={11} /> Replay / Score Link (Optional)</label>
-              <input type="text" value={replayUrl} onChange={e => setReplayUrl(e.target.value)}
+              <input type="text" disabled={isBanned} value={replayUrl} onChange={e => setReplayUrl(e.target.value)}
                 placeholder="https://v4rx.me/replays/..." className="form-input" />
             </div>
 
             <div className="form-group">
               <label className="form-label"><MessageSquare size={11} /> Comment / Details</label>
-              <textarea rows={2} value={comment} onChange={e => setComment(e.target.value)}
+              <textarea rows={2} disabled={isBanned} value={comment} onChange={e => setComment(e.target.value)}
                 placeholder="Describe your run or mods used…" className="form-input" />
             </div>
 
             <div className="modal-footer" style={{ padding: 0, borderTop: 'none', marginTop: 4 }}>
               <button type="button" className="btn btn-ghost btn-sm" onClick={onClose}>Cancel</button>
-              <button type="submit" disabled={!proofUrl} className="btn btn-primary btn-sm" style={{ opacity: !proofUrl ? 0.5 : 1 }}>
-                <Send size={12} /> Send Approval Request
+              <button type="submit" disabled={!proofUrl || isBanned} className="btn btn-primary btn-sm" style={{ opacity: (!proofUrl || isBanned) ? 0.5 : 1 }}>
+                <Send size={12} /> {isBanned ? 'Banned 🚫' : 'Send Approval Request'}
               </button>
             </div>
           </form>

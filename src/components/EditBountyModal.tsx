@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import type { Bounty } from '../types/bounty';
-import { X, Coins, Plus, Trash2, CheckCircle2, Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import type { Bounty, User } from '../types/bounty';
+import { X, Coins, Plus, Trash2, CheckCircle2, Save, UserX } from 'lucide-react';
+import { collection, query, limit, getDocs } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 interface EditBountyModalProps {
   bounty: Bounty;
@@ -18,12 +20,44 @@ export const EditBountyModal: React.FC<EditBountyModalProps> = ({
   const [tagInput, setTagInput] = useState((bounty.tags || []).filter(t => !['RANKED', 'LOVED', 'GRAVEYARD'].includes(t.toUpperCase())).join(', '));
   const [skillsetInput, setSkillsetInput] = useState((bounty.skillsets || []).join(', '));
   const [saving, setSaving] = useState(false);
+  const [allRegisteredUsers, setAllRegisteredUsers] = useState<User[]>([]);
+  const [bannedHunters, setBannedHunters] = useState<string[]>(bounty.bannedHunters || []);
+  const [bannedUsernames, setBannedUsernames] = useState<string[]>(bounty.bannedUsernames || []);
+
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const q = query(collection(db, 'users'), limit(100));
+        const snap = await getDocs(q);
+        const list = snap.docs.map(d => ({ id: d.id, ...(d.data() as Omit<User, 'id'>) }));
+        setAllRegisteredUsers(list);
+      } catch (err) {
+        console.warn('Fetch registered users error in edit modal:', err);
+      }
+    };
+    fetchUsers();
+  }, []);
 
   const handleRewardChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.replace(/[^\d]/g, '');
     if (/^0\d+/.test(val)) val = val.replace(/^0+/, '');
     if (val === '') val = '0';
     setRewardAmount(val);
+  };
+
+  const addBannedUser = (user: User) => {
+    if (!bannedHunters.includes(user.id)) {
+      setBannedHunters(prev => [...prev, user.id]);
+      setBannedUsernames(prev => [...prev, user.username]);
+    }
+  };
+
+  const removeBannedUser = (userId: string) => {
+    const idx = bannedHunters.indexOf(userId);
+    if (idx !== -1) {
+      setBannedHunters(prev => prev.filter(id => id !== userId));
+      setBannedUsernames(prev => prev.filter((_, i) => i !== idx));
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,6 +72,8 @@ export const EditBountyModal: React.FC<EditBountyModalProps> = ({
       rules,
       tags: [bounty.beatmap.status.toUpperCase(), ...tags],
       skillsets,
+      bannedHunters,
+      bannedUsernames,
     });
     setSaving(false);
     onClose();
@@ -157,6 +193,79 @@ export const EditBountyModal: React.FC<EditBountyModalProps> = ({
                 placeholder="e.g. Aim, Jump, Stream, Reading, Stamina"
                 className="form-input"
               />
+            </div>
+
+            {/* Ban Player (Restricted Hunters) */}
+            <div className="form-group">
+              <label className="form-label" style={{ color: 'var(--red)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                <UserX size={12} /> Ban Player (Restricted Hunters)
+              </label>
+              <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 6 }}>
+                Selected players cannot play or submit proof for this bounty map.
+              </div>
+
+              {/* Selected Banned User Pills */}
+              {bannedHunters.length > 0 && (
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                  {bannedHunters.map((id, index) => (
+                    <span
+                      key={id}
+                      style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 6,
+                        background: 'rgba(239, 68, 68, 0.15)',
+                        border: '1px solid rgba(239, 68, 68, 0.4)',
+                        color: '#f87171',
+                        borderRadius: 99,
+                        padding: '3px 10px',
+                        fontSize: 11,
+                        fontWeight: 600,
+                      }}
+                    >
+                      <UserX size={11} />
+                      {bannedUsernames[index] || id}
+                      <button
+                        type="button"
+                        onClick={() => removeBannedUser(id)}
+                        style={{
+                          background: 'none',
+                          border: 'none',
+                          color: '#f87171',
+                          cursor: 'pointer',
+                          padding: 0,
+                          display: 'flex',
+                          alignItems: 'center',
+                        }}
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {/* Selector Dropdown */}
+              <select
+                className="form-input"
+                style={{ fontSize: 12 }}
+                onChange={e => {
+                  const selectedId = e.target.value;
+                  if (!selectedId) return;
+                  const targetUser = allRegisteredUsers.find(u => u.id === selectedId);
+                  if (targetUser) addBannedUser(targetUser);
+                  e.target.value = '';
+                }}
+              >
+                <option value="">+ Pick a user to ban from this bounty...</option>
+                {allRegisteredUsers
+                  .filter(u => u.id !== bounty.giver.id && !bannedHunters.includes(u.id))
+                  .map(u => (
+                    <option key={u.id} value={u.id}>
+                      {u.username} ({u.bountyPoints || 100} BP)
+                    </option>
+                  ))}
+              </select>
             </div>
           </div>
 

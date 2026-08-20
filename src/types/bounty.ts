@@ -82,6 +82,8 @@ export interface Bounty {
   views: number;
   avgDifficulty?: number;
   difficultyRatings?: Record<string, number>;
+  bannedHunters?: string[];     // User IDs of banned players
+  bannedUsernames?: string[];   // Display usernames of banned players
 }
 
 export interface AppNotification {

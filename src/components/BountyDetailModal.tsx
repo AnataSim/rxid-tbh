@@ -3,7 +3,7 @@ import type { Bounty, User, Submission } from '../types/bounty';
 import { normalizeAvatarUrl } from '../services/authService';
 import {
   X, Star, Clock, Play, RefreshCw, Trash2, Pencil,
-  ExternalLink, ShieldCheck, Upload, Coins, Calendar, Trophy
+  ExternalLink, ShieldCheck, Upload, Coins, Calendar, Trophy, UserX
 } from 'lucide-react';
 
 import { useAuth } from '../context/AuthContext';
@@ -30,6 +30,10 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
   if (!bounty) return null;
   const { beatmap, giver, reward, instructions, rules, tags } = bounty;
   const isGiver = activeRole === 'bounty_giver' || currentUser.id === giver.id;
+  const isBanned = Boolean(
+    (bounty.bannedHunters && bounty.bannedHunters.includes(currentUser.id)) ||
+    (bounty.bannedUsernames && bounty.bannedUsernames.some(u => u.toLowerCase() === (currentUser.username || '').toLowerCase()))
+  );
 
   const [subsList, setSubsList] = useState<Submission[]>(bounty.submissions || []);
   const [refreshing, setRefreshing] = useState(false);
@@ -326,6 +330,19 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
             onRate={(val) => onRateDifficulty && onRateDifficulty(bounty.id, val)}
           />
 
+          {/* Ban Warning Banner (If Current Hunter is Banned) */}
+          {isBanned && (
+            <div style={{
+              padding: '12px 16px', borderRadius: 'var(--radius)',
+              background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.4)',
+              color: '#f87171', fontSize: 12, fontWeight: 700,
+              display: 'flex', alignItems: 'center', gap: 8,
+            }}>
+              <UserX size={16} />
+              <span>You have been restricted by the Bounty Giver from playing or submitting proof to this quest.</span>
+            </div>
+          )}
+
           {/* Actions Bar */}
           <div style={{
             display: 'flex', flexDirection: 'column', gap: 14,
@@ -339,9 +356,31 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
                   Review Proofs ({pending.length})
                 </button>
               ) : (
-                <button onClick={() => onOpenSubmitProof(bounty)} className="btn btn-primary btn-lg" style={{ width: '100%' }}>
-                  <Upload size={14} />
-                  Submit Approval
+                <button
+                  onClick={() => !isBanned && onOpenSubmitProof(bounty)}
+                  disabled={isBanned}
+                  className="btn btn-primary btn-lg"
+                  style={{
+                    width: '100%',
+                    opacity: isBanned ? 0.5 : 1,
+                    cursor: isBanned ? 'not-allowed' : 'pointer',
+                    background: isBanned ? 'rgba(239, 68, 68, 0.2)' : undefined,
+                    borderColor: isBanned ? 'rgba(239, 68, 68, 0.4)' : undefined,
+                    color: isBanned ? '#f87171' : undefined,
+                  }}
+                  title={isBanned ? 'You are restricted from submitting proof for this bounty map' : 'Submit Approval'}
+                >
+                  {isBanned ? (
+                    <>
+                      <UserX size={14} />
+                      Banned from this Bounty Map 🚫
+                    </>
+                  ) : (
+                    <>
+                      <Upload size={14} />
+                      Submit Approval
+                    </>
+                  )}
                 </button>
               )}
             </div>
