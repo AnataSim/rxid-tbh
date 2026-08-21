@@ -59,7 +59,9 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({
 
     setIsSearching(true);
     const timer = setTimeout(async () => {
-      const results = await searchUsernames(clean, user?.id || user?.uid);
+      const currentUid = user?.id || user?.uid;
+      const currentUsername = user?.username;
+      const results = await searchUsernames(clean, currentUid, currentUsername);
       setSearchResults(results);
       setIsSearching(false);
     }, 300);

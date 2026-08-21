@@ -42,6 +42,10 @@ export interface UserSearchResult {
  * Sends a friend invitation matching Firestore security rules:
  * Path: /users/{targetUid}/friendRequests/{fromUid}
  */
+/**
+ * Sends a friend invitation matching Firestore security rules:
+ * Path: /users/{targetUid}/friendRequests/{fromUid}
+ */
 export const sendFriendInvitation = async (
   fromUser: User, 
   targetUsernameOrUid: string
@@ -50,6 +54,7 @@ export const sendFriendInvitation = async (
   if (!cleanTarget) throw new Error('Masukkan username atau UID yang valid.');
 
   const currentUid = fromUser.id || fromUser.uid;
+  const currentUsername = (fromUser.username || '').trim().toLowerCase();
 
   // 1. Search 'users' collection in Firestore strictly for registered accounts
   const usersSnap = await getDocs(collection(db, 'users'));
@@ -76,7 +81,7 @@ export const sendFriendInvitation = async (
   const validTarget = targetUser as { uid: string; username: string; photoURL: string | null };
   const targetUid = validTarget.uid;
 
-  if (targetUid === currentUid) {
+  if (targetUid === currentUid || (currentUsername && validTarget.username.trim().toLowerCase() === currentUsername)) {
     throw new Error('Kamu tidak dapat mengirim undangan pertemanan ke diri sendiri.');
   }
 
@@ -197,7 +202,8 @@ export const rejectFriendInvitation = async (currentUid: string, requestId: stri
  */
 export const searchUsernames = async (
   searchQuery: string,
-  currentUid?: string
+  currentUid?: string,
+  currentUsername?: string
 ): Promise<UserSearchResult[]> => {
   const clean = searchQuery.trim().toLowerCase();
   if (!clean) return [];
@@ -218,13 +224,13 @@ export const searchUsernames = async (
         uid.toLowerCase().includes(clean) ||
         (data.email && data.email.toLowerCase().includes(clean))
       ) {
-        const isSelf = uid === currentUid || username.trim().toLowerCase() === clean;
+        const isSelf = uid === currentUid || (currentUsername && username.trim().toLowerCase() === currentUsername.trim().toLowerCase());
         resultsMap.set(uid, {
           uid,
           displayName: username,
           photoURL: data.avatarUrl || data.photoURL || null,
           osuId: data.osuId,
-          isSelf,
+          isSelf: Boolean(isSelf),
         });
       }
     });
