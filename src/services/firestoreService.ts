@@ -199,7 +199,8 @@ export async function syncAllUserBp(): Promise<void> {
 
     for (const { sData, baseReward } of allSubResults) {
       if (sData.status === 'approved') {
-        const awarded = sData.awardedBp !== undefined ? sData.awardedBp : Math.round(baseReward * 1.5);
+        // Use stored awardedBp if valid (>0), otherwise fall back to 1.5x baseReward
+        const awarded = (sData.awardedBp && sData.awardedBp > 0) ? sData.awardedBp : Math.round(baseReward * 1.5);
         if (sData.hunterId) {
           if (!userBpMap[sData.hunterId]) userBpMap[sData.hunterId] = { bp: 0, count: 0 };
           userBpMap[sData.hunterId].bp += awarded;
@@ -221,6 +222,7 @@ export async function syncAllUserBp(): Promise<void> {
       const uData = uDoc.data() as User;
       const uid = uDoc.id;
       const usernameLower = (uData.username || '').trim().toLowerCase();
+      const currentBp = uData.bountyPoints || 100;
 
       const earnedFromUid = userBpMap[uid];
       const earnedFromName = usernameLower ? usernameBpMap[usernameLower] : null;
@@ -234,9 +236,13 @@ export async function syncAllUserBp(): Promise<void> {
         earnedFromName ? earnedFromName.count : 0
       );
 
-      const expectedBp = 100 + totalEarnedBp;
+      const calculatedBp = 100 + totalEarnedBp;
 
-      if ((uData.bountyPoints || 100) !== expectedBp || (uData.bountiesClaimedCount || 0) !== totalClaimedCount) {
+      // CRITICAL: Never decrease a user's BP — only ever write if calculated is HIGHER than stored.
+      // This prevents a race condition where missing submission data resets earned BP back to 100.
+      const expectedBp = Math.max(calculatedBp, currentBp);
+
+      if (currentBp !== expectedBp || (uData.bountiesClaimedCount || 0) !== totalClaimedCount) {
         updatePromises.push(
           updateDoc(doc(db, USERS_COL, uid), {
             bountyPoints: expectedBp,

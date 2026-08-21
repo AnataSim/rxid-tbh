@@ -12,16 +12,14 @@ import { syncAllUserBp } from '../services/firestoreService';
 import { cacheService } from '../services/cacheService';
 
 export const Leaderboard: React.FC = () => {
-  const [players, setPlayers] = useState<User[]>(() => {
-    return cacheService.get<User[]>('bountyosu_leaderboard_cache') || [];
-  });
-  const [loading, setLoading] = useState(() => {
-    const cached = cacheService.get<User[]>('bountyosu_leaderboard_cache');
-    return !cached || cached.length === 0;
-  });
+  const [players, setPlayers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
+    // Clear any stale cache so we always show fresh Firestore data first
+    cacheService.remove('bountyosu_leaderboard_cache');
+
     // Run background auto-sync in parallel to heal any out-of-sync player BP records
     syncAllUserBp().catch(() => {});
 
