@@ -11,6 +11,8 @@ import { syncAllUserBp } from '../services/firestoreService';
 
 import { cacheService } from '../services/cacheService';
 
+import { DevBadge } from './DevBadge';
+
 export const Leaderboard: React.FC = () => {
   const [players, setPlayers] = useState<User[]>(() => {
     return cacheService.get<User[]>('bountyosu_leaderboard_cache') || [];
@@ -243,10 +245,11 @@ export const Leaderboard: React.FC = () => {
                     <img
                       src={`https://flagcdn.com/w40/${(p.countryCode || 'id').toLowerCase()}.png`}
                       alt={p.countryCode || 'ID'}
-                      style={{ width: 18, height: 12, borderRadius: 2, objectFit: 'cover', flexShrink: 0 }}
+                      style={{ width: 20, height: 13, borderRadius: 2, objectFit: 'fill', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }}
                       onError={e => { e.currentTarget.style.display = 'none'; }}
                     />
                     <span>{p.username}</span>
+                    <DevBadge username={p.username} />
                     <BugHunterIcon username={p.username} />
                   </div>
                   {(() => {

@@ -15,6 +15,7 @@ import { TitlesPage } from './components/TitlesPage';
 import { FriendsPanel } from './components/FriendsPanel';
 import { CoolLoadingScreen } from './components/CoolLoadingScreen';
 import { BugHunterIcon } from './components/BugHunterBadge';
+import { DevBadge } from './components/DevBadge';
 import {
   subscribeToBounties,
   createBounty,
@@ -335,10 +336,11 @@ export function AppContent() {
                     <img
                       src={`https://flagcdn.com/w40/${(currentUser.countryCode || 'id').toLowerCase()}.png`}
                       alt={currentUser.countryCode || 'ID'}
-                      style={{ width: 22, height: 15, borderRadius: 3, objectFit: 'cover', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
+                      style={{ width: 22, height: 14, borderRadius: 3, objectFit: 'fill', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
                       onError={e => { e.currentTarget.style.display = 'none'; }}
                     />
                     <span>{currentUser.username}</span>
+                    <DevBadge username={currentUser.username} />
                     <span
                       title={activeRole === 'bounty_giver' ? 'Role: Bounty Giver (BG)' : 'Role: Bounty Hunter (TBH)'}
                       style={{

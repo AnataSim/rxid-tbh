@@ -2,6 +2,7 @@ import React from 'react';
 import { X, UserX, Calendar } from 'lucide-react';
 import { CowboyRankSquareFrame } from './CowboyRankBadge';
 import { BugHunterIcon } from './BugHunterBadge';
+import { DevBadge } from './DevBadge';
 import { normalizeAvatarUrl } from '../services/authService';
 
 export interface UserProfileData {
@@ -88,12 +89,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClos
             <img
               src={`https://flagcdn.com/w40/${(user.countryCode || 'id').toLowerCase()}.png`}
               alt={user.countryCode || 'ID'}
-              style={{ width: 22, height: 15, borderRadius: 3, objectFit: 'cover', boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
+              style={{ width: 22, height: 14, borderRadius: 3, objectFit: 'fill', boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
               onError={e => { e.currentTarget.style.display = 'none'; }}
             />
             <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-1)', letterSpacing: '-0.4px' }}>
               {user.username}
             </h2>
+            <DevBadge username={user.username} />
           {(() => {
             const isGiver = (user as any).role === 'bounty_giver' || ['sim', 'darkww', '63', '85'].includes((user.username || '').toLowerCase());
             return (

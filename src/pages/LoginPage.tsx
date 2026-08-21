@@ -332,7 +332,7 @@ export function LoginPage() {
                       <img
                         src={`https://flagcdn.com/w40/${(profilePreview.countryCode || 'id').toLowerCase()}.png`}
                         alt={profilePreview.countryCode || 'ID'}
-                        style={{ width: 18, height: 12, borderRadius: 2, objectFit: 'cover', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
+                        style={{ width: 20, height: 13, borderRadius: 2, objectFit: 'fill', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
                         onError={e => { e.currentTarget.style.display = 'none'; }}
                       />
                       <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>
@@ -464,7 +464,7 @@ export function LoginPage() {
                     <img
                       src={`https://flagcdn.com/w40/${(profilePreview.countryCode || 'id').toLowerCase()}.png`}
                       alt={profilePreview.countryCode || 'ID'}
-                      style={{ width: 18, height: 12, borderRadius: 2, objectFit: 'cover', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
+                      style={{ width: 20, height: 13, borderRadius: 2, objectFit: 'fill', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
                       onError={e => { e.currentTarget.style.display = 'none'; }}
                     />
                     <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)' }}>
