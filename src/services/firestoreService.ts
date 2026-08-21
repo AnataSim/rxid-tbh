@@ -1,5 +1,5 @@
 import {
-  collection, collectionGroup, where, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
+  collection, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
   query, orderBy, serverTimestamp, getDoc, getDocs, increment,
   type Unsubscribe,
 } from 'firebase/firestore';
@@ -184,26 +184,35 @@ export async function syncAllUserBp(): Promise<void> {
     const userBpMap: Record<string, { bp: number; count: number }> = {};
     const usernameBpMap: Record<string, { bp: number; count: number }> = {};
 
-    // Single fast query across all approved submissions in all bounties (<50ms)!
-    const approvedSubSnap = await getDocs(
-      query(collectionGroup(db, 'submissions'), where('status', '==', 'approved'))
-    );
-
-    approvedSubSnap.forEach((sDoc) => {
-      const sData = sDoc.data() as Submission;
-      const awarded = sData.awardedBp !== undefined ? sData.awardedBp : 100;
-      if (sData.hunterId) {
-        if (!userBpMap[sData.hunterId]) userBpMap[sData.hunterId] = { bp: 0, count: 0 };
-        userBpMap[sData.hunterId].bp += awarded;
-        userBpMap[sData.hunterId].count += 1;
-      }
-      if (sData.hunterUsername) {
-        const lowerName = sData.hunterUsername.trim().toLowerCase();
-        if (!usernameBpMap[lowerName]) usernameBpMap[lowerName] = { bp: 0, count: 0 };
-        usernameBpMap[lowerName].bp += awarded;
-        usernameBpMap[lowerName].count += 1;
-      }
+    const bountiesSnap = await getDocs(collection(db, BOUNTIES_COL));
+    const subPromises = bountiesSnap.docs.map(async (bDoc) => {
+      const bData = bDoc.data() as Bounty;
+      const baseReward = bData.reward?.amount || 100;
+      const subSnap = await getDocs(collection(db, BOUNTIES_COL, bDoc.id, 'submissions'));
+      return subSnap.docs.map(s => ({
+        sData: s.data() as Submission,
+        baseReward
+      }));
     });
+
+    const allSubResults = (await Promise.all(subPromises)).flat();
+
+    for (const { sData, baseReward } of allSubResults) {
+      if (sData.status === 'approved') {
+        const awarded = sData.awardedBp !== undefined ? sData.awardedBp : Math.round(baseReward * 1.5);
+        if (sData.hunterId) {
+          if (!userBpMap[sData.hunterId]) userBpMap[sData.hunterId] = { bp: 0, count: 0 };
+          userBpMap[sData.hunterId].bp += awarded;
+          userBpMap[sData.hunterId].count += 1;
+        }
+        if (sData.hunterUsername) {
+          const lowerName = sData.hunterUsername.trim().toLowerCase();
+          if (!usernameBpMap[lowerName]) usernameBpMap[lowerName] = { bp: 0, count: 0 };
+          usernameBpMap[lowerName].bp += awarded;
+          usernameBpMap[lowerName].count += 1;
+        }
+      }
+    }
 
     const usersSnap = await getDocs(collection(db, USERS_COL));
     const updatePromises: Promise<any>[] = [];

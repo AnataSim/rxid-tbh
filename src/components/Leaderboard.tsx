@@ -22,48 +22,47 @@ export const Leaderboard: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    let unsub: (() => void) | undefined;
+    // Run background auto-sync in parallel to heal any out-of-sync player BP records
+    syncAllUserBp().catch(() => {});
 
-    // Instant sync on mount (<50ms via collectionGroup) so all user BP calculations are 100% up-to-date
-    syncAllUserBp().finally(() => {
-      const q = query(
-        collection(db, 'users'),
-        orderBy('bountyPoints', 'desc'),
-        limit(50)
-      );
+    const q = query(
+      collection(db, 'users'),
+      orderBy('bountyPoints', 'desc'),
+      limit(50)
+    );
 
-      unsub = onSnapshot(q, (snapshot) => {
-        const docs = snapshot.docs.map(d => ({ docId: d.id, data: d.data() as User }));
+    const unsub = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(d => ({ docId: d.id, data: d.data() as User }));
 
-        // Auto-clean duplicate docs in Firestore with identical username
-        const seenNames = new Set<string>();
-        const cleanList: User[] = [];
-        for (const item of docs) {
-          const name = (item.data.username || '').trim().toLowerCase();
-          if (name) {
-            if (seenNames.has(name)) {
-              deleteDoc(doc(db, 'users', item.docId)).catch(() => {});
-            } else {
-              seenNames.add(name);
-              cleanList.push(item.data);
-            }
+      // Auto-clean duplicate docs in Firestore with identical username
+      const seenNames = new Set<string>();
+      const cleanList: User[] = [];
+      for (const item of docs) {
+        const name = (item.data.username || '').trim().toLowerCase();
+        if (name) {
+          if (seenNames.has(name)) {
+            deleteDoc(doc(db, 'users', item.docId)).catch(() => {});
           } else {
+            seenNames.add(name);
             cleanList.push(item.data);
           }
+        } else {
+          cleanList.push(item.data);
         }
+      }
 
-        // Sort cleanList: Primary = BP desc, Secondary = Earliest timestamp
-        cleanList.sort((a, b) => {
-          const bpA = a.bountyPoints || 100;
-          const bpB = b.bountyPoints || 100;
-          if (bpA !== bpB) return bpB - bpA;
-          const timeA = new Date(a.lastBpUpdatedAt || a.createdAt || '2026-08-19T00:00:00Z').getTime();
-          const timeB = new Date(b.lastBpUpdatedAt || b.createdAt || '2026-08-19T00:00:00Z').getTime();
-          return timeA - timeB;
-        });
+      // Sort cleanList: Primary = BP desc, Secondary = Earliest timestamp
+      cleanList.sort((a, b) => {
+        const bpA = a.bountyPoints || 100;
+        const bpB = b.bountyPoints || 100;
+        if (bpA !== bpB) return bpB - bpA;
+        const timeA = new Date(a.lastBpUpdatedAt || a.createdAt || '2026-08-19T00:00:00Z').getTime();
+        const timeB = new Date(b.lastBpUpdatedAt || b.createdAt || '2026-08-19T00:00:00Z').getTime();
+        return timeA - timeB;
+      });
 
-        setPlayers(cleanList);
-        setLoading(false);
+      setPlayers(cleanList);
+      setLoading(false);
 
         // Only sync real v4rx.me profile data for players with missing or unpopulated profile data
         const playersNeedingSync = cleanList.filter(player => {
@@ -111,11 +110,8 @@ export const Leaderboard: React.FC = () => {
         console.error('Leaderboard realtime fetch error:', err);
         setLoading(false);
       });
-    });
 
-    return () => {
-      if (unsub) unsub();
-    };
+    return () => unsub();
   }, []);
 
   const handleRefresh = async () => {
