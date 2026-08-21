@@ -9,7 +9,6 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { User } from '../types/bounty';
-import { fetchV4rxProfile } from './osuApi';
 import { buildAvatarUrl } from './authService';
 
 export interface FriendRequest {
@@ -44,6 +43,11 @@ export interface UserSearchResult {
  * Sends a friend invitation matching Firestore security rules:
  * Path: /users/{targetUid}/friendRequests/{fromUid}
  */
+/**
+ * Sends a friend invitation matching Firestore security rules:
+ * Path: /users/{targetUid}/friendRequests/{fromUid}
+ * Strictly requires the target user to be registered/logged-in in Firestore!
+ */
 export const sendFriendInvitation = async (
   fromUser: User, 
   targetUsernameOrUid: string
@@ -58,7 +62,7 @@ export const sendFriendInvitation = async (
     throw new Error('Kamu tidak dapat mengirim undangan pertemanan ke diri sendiri.');
   }
 
-  // 1. Search 'users' collection in Firestore strictly for registered accounts
+  // Search 'users' collection in Firestore strictly for registered accounts
   const usersSnap = await getDocs(collection(db, 'users'));
   let targetUser: { uid: string; username: string; photoURL: string | null } | null = null;
 
@@ -76,45 +80,8 @@ export const sendFriendInvitation = async (
     }
   });
 
-  // 2. Search bounty submissions if user not found in registered accounts
   if (!targetUser) {
-    const bountiesSnap = await getDocs(collection(db, 'bounties'));
-    for (const bDoc of bountiesSnap.docs) {
-      const subSnap = await getDocs(collection(db, 'bounties', bDoc.id, 'submissions'));
-      for (const sDoc of subSnap.docs) {
-        const sData = sDoc.data();
-        const hunterName = (sData.hunterUsername || '').toLowerCase();
-        if (hunterName === cleanTarget) {
-          targetUser = {
-            uid: sData.hunterId || `hunter_${hunterName}`,
-            username: sData.hunterUsername,
-            photoURL: sData.hunterAvatar || buildAvatarUrl(undefined, sData.hunterUsername),
-          };
-          break;
-        }
-      }
-      if (targetUser) break;
-    }
-  }
-
-  // 3. Fallback: Search v4rx.me profile API (e.g. for darkww, foshy, etc.)
-  if (!targetUser) {
-    try {
-      const vProf = await fetchV4rxProfile(cleanTarget);
-      if (vProf && vProf.username && !vProf.username.startsWith('Player #')) {
-        targetUser = {
-          uid: `v4rx_${vProf.id || vProf.username.toLowerCase()}`,
-          username: vProf.username,
-          photoURL: vProf.avatarUrl || buildAvatarUrl(vProf.id, vProf.username),
-        };
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  if (!targetUser) {
-    throw new Error(`User atau UID "${targetUsernameOrUid}" tidak ditemukan di sistem.`);
+    throw new Error(`User "${targetUsernameOrUid}" belum terdaftar / login di aplikasi.`);
   }
 
   const validTarget = targetUser as { uid: string; username: string; photoURL: string | null };
@@ -124,14 +91,14 @@ export const sendFriendInvitation = async (
     throw new Error('Kamu tidak dapat mengirim undangan pertemanan ke diri sendiri.');
   }
 
-  // 4. Check if already friends at /users/{currentUid}/friends/{targetUid}
+  // Check if already friends at /users/{currentUid}/friends/{targetUid}
   const friendDocRef = doc(db, 'users', currentUid, 'friends', targetUid);
   const friendSnap = await getDoc(friendDocRef);
   if (friendSnap.exists()) {
     throw new Error(`Kamu sudah berteman dengan "${validTarget.username}".`);
   }
 
-  // 5. Create new friend request at /users/{targetUid}/friendRequests/{currentUid}
+  // Create new friend request at /users/{targetUid}/friendRequests/{currentUid}
   const requestDocRef = doc(db, 'users', targetUid, 'friendRequests', currentUid);
   const existingSnap = await getDoc(requestDocRef);
   if (existingSnap.exists()) {
@@ -236,7 +203,8 @@ export const rejectFriendInvitation = async (currentUid: string, requestId: stri
 };
 
 /**
- * Searches strictly for existing users in Firestore or v4rx.me profiles.
+ * Searches strictly for existing users registered/logged-in in Firestore (`users` collection).
+ * Does NOT display unregistered or synthetic candidates!
  */
 export const searchUsernames = async (
   searchQuery: string,
@@ -249,85 +217,32 @@ export const searchUsernames = async (
   try {
     const resultsMap = new Map<string, UserSearchResult>();
 
-    // 1. Search 'users' collection in Firestore
-    try {
-      const usersSnap = await getDocs(collection(db, 'users'));
-      usersSnap.forEach((d) => {
-        const uid = d.id;
-        const data = d.data();
-        const username = data.username || data.email?.split('@')[0] || 'User';
-        const osuIdStr = (data.osuId || '').toString().toLowerCase();
+    // Search ONLY 'users' collection in Firestore (registered/logged-in users)
+    const usersSnap = await getDocs(collection(db, 'users'));
+    usersSnap.forEach((d) => {
+      const uid = d.id;
+      const data = d.data();
+      const username = data.username || data.email?.split('@')[0] || 'User';
+      const osuIdStr = (data.osuId || '').toString().toLowerCase();
 
-        if (
-          username.toLowerCase().includes(clean) ||
-          osuIdStr.includes(clean) ||
-          uid.toLowerCase().includes(clean) ||
-          (data.email && data.email.toLowerCase().includes(clean))
-        ) {
-          const isSelf = uid === currentUid || (currentUsername && username.trim().toLowerCase() === currentUsername.trim().toLowerCase());
-          const avatar = data.avatarUrl || data.photoURL || buildAvatarUrl(data.osuId, username);
-          resultsMap.set(username.toLowerCase(), {
-            uid,
-            displayName: username,
-            photoURL: avatar,
-            osuId: data.osuId,
-            isSelf: Boolean(isSelf),
-          });
-        }
-      });
-    } catch (err) {
-      console.warn('Firestore users search error:', err);
-    }
-
-    // 2. Search bounty submissions for hunters matching the query
-    try {
-      const bountiesSnap = await getDocs(collection(db, 'bounties'));
-      for (const bDoc of bountiesSnap.docs) {
-        const subSnap = await getDocs(collection(db, 'bounties', bDoc.id, 'submissions'));
-        for (const sDoc of subSnap.docs) {
-          const sData = sDoc.data();
-          const hunterName = sData.hunterUsername || '';
-          if (hunterName.toLowerCase().includes(clean)) {
-            const lowerName = hunterName.toLowerCase();
-            if (!resultsMap.has(lowerName)) {
-              const hunterUid = sData.hunterId || `hunter_${lowerName}`;
-              const isSelf = hunterUid === currentUid || (currentUsername && lowerName === currentUsername.trim().toLowerCase());
-              resultsMap.set(lowerName, {
-                uid: hunterUid,
-                displayName: hunterName,
-                photoURL: sData.hunterAvatar || buildAvatarUrl(undefined, hunterName),
-                isSelf: Boolean(isSelf),
-              });
-            }
-          }
-        }
+      if (
+        username.toLowerCase().includes(clean) ||
+        osuIdStr.includes(clean) ||
+        uid.toLowerCase().includes(clean) ||
+        (data.email && data.email.toLowerCase().includes(clean))
+      ) {
+        const isSelf = uid === currentUid || (currentUsername && username.trim().toLowerCase() === currentUsername.trim().toLowerCase());
+        const avatar = data.avatarUrl || data.photoURL || buildAvatarUrl(data.osuId, username);
+        resultsMap.set(uid, {
+          uid,
+          displayName: username,
+          photoURL: avatar,
+          osuId: data.osuId,
+          isSelf: Boolean(isSelf),
+        });
       }
-    } catch {
-      // ignore
-    }
+    });
 
-    // 3. Search v4rx.me profile API (e.g. for darkww, foshy, etc.)
-    try {
-      const vProf = await fetchV4rxProfile(clean);
-      if (vProf && vProf.username && !vProf.username.startsWith('Player #')) {
-        const lowerName = vProf.username.toLowerCase();
-        if (!resultsMap.has(lowerName) || (clean === lowerName && (!resultsMap.get(lowerName)?.photoURL || resultsMap.get(lowerName)?.photoURL?.includes('ui-avatars')))) {
-          const vUid = `v4rx_${vProf.id || lowerName}`;
-          const isSelf = vUid === currentUid || (currentUsername && lowerName === currentUsername.trim().toLowerCase());
-          resultsMap.set(lowerName, {
-            uid: vUid,
-            displayName: vProf.username,
-            photoURL: vProf.avatarUrl || buildAvatarUrl(vProf.id, vProf.username),
-            osuId: vProf.id,
-            isSelf: Boolean(isSelf),
-          });
-        }
-      }
-    } catch {
-      // ignore
-    }
-
-    // Sort results: Exact username match first!
     const resultsList = Array.from(resultsMap.values());
     resultsList.sort((a, b) => {
       const aExact = a.displayName.toLowerCase() === clean;
