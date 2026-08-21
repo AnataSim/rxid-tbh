@@ -12,16 +12,23 @@ import { syncAllUserBp } from '../services/firestoreService';
 import { cacheService } from '../services/cacheService';
 
 export const Leaderboard: React.FC = () => {
-  const [players, setPlayers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [players, setPlayers] = useState<User[]>(() => {
+    return cacheService.get<User[]>('bountyosu_leaderboard_cache') || [];
+  });
+  const [loading, setLoading] = useState<boolean>(() => {
+    const cached = cacheService.get<User[]>('bountyosu_leaderboard_cache');
+    return !cached || cached.length === 0;
+  });
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    // Clear any stale cache so we always show fresh Firestore data first
-    cacheService.remove('bountyosu_leaderboard_cache');
-
     // Run background auto-sync in parallel to heal any out-of-sync player BP records
     syncAllUserBp().catch(() => {});
+
+    // Safety timeout: Ensure loading spinner never hangs indefinitely
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 2500);
 
     const q = query(
       collection(db, 'users'),
@@ -30,9 +37,7 @@ export const Leaderboard: React.FC = () => {
     );
 
     const unsub = onSnapshot(q, (snapshot) => {
-      // Skip local Firestore cache snapshots — only process data confirmed by the server
-      // This prevents a stale-cache flash where old BP values show before server responds
-      if (snapshot.metadata.fromCache) return;
+      clearTimeout(timer);
 
       const docs = snapshot.docs.map(d => ({ docId: d.id, data: d.data() as User }));
 
@@ -65,55 +70,64 @@ export const Leaderboard: React.FC = () => {
 
       setPlayers(cleanList);
       setLoading(false);
+      cacheService.set('bountyosu_leaderboard_cache', cleanList, 60 * 60 * 1000);
 
-        // Only sync real v4rx.me profile data for players with missing or unpopulated profile data
-        const playersNeedingSync = cleanList.filter(player => {
-          const isMissingData = !player.v4rxPp || player.v4rxPp === 0 || !player.v4rxRank || player.username.startsWith('Player #');
-          return isMissingData;
-        });
+      // Only sync real v4rx.me profile data for players with missing or unpopulated profile data
+      const playersNeedingSync = cleanList.filter(player => {
+        const isMissingData = !player.v4rxPp || player.v4rxPp === 0 || !player.v4rxRank || player.username.startsWith('Player #');
+        return isMissingData;
+      });
 
-        if (playersNeedingSync.length > 0) {
-          const syncPromises = playersNeedingSync.map(async player => {
-            const idToSync = player.osuId || (player.username && player.username.startsWith('Player #') ? player.username.replace('Player #', '') : null);
-            if (idToSync) {
-              try {
-                const fresh = await fetchV4rxProfile(idToSync);
-                if (
-                  fresh &&
-                  fresh.username &&
-                  !fresh.username.startsWith('Player #') &&
-                  (fresh.username !== player.username || fresh.v4rxPp !== player.v4rxPp || fresh.v4rxAccuracy !== player.v4rxAccuracy || fresh.v4rxRank !== player.v4rxRank)
-                ) {
-                  setPlayers(prev => prev.map(p => p.id === player.id ? {
+      if (playersNeedingSync.length > 0) {
+        const syncPromises = playersNeedingSync.map(async player => {
+          const idToSync = player.osuId || (player.username && player.username.startsWith('Player #') ? player.username.replace('Player #', '') : null);
+          if (idToSync) {
+            try {
+              const fresh = await fetchV4rxProfile(idToSync);
+              if (
+                fresh &&
+                fresh.username &&
+                !fresh.username.startsWith('Player #') &&
+                (fresh.username !== player.username || fresh.v4rxPp !== player.v4rxPp || fresh.v4rxAccuracy !== player.v4rxAccuracy || fresh.v4rxRank !== player.v4rxRank)
+              ) {
+                setPlayers(prev => {
+                  const updated = prev.map(p => p.id === player.id ? {
                     ...p,
                     username: fresh.username,
                     avatarUrl: fresh.avatarUrl,
                     v4rxPp: fresh.v4rxPp,
                     v4rxRank: fresh.v4rxRank,
                     v4rxAccuracy: fresh.v4rxAccuracy,
-                  } : p));
+                  } : p);
+                  cacheService.set('bountyosu_leaderboard_cache', updated, 60 * 60 * 1000);
+                  return updated;
+                });
 
-                  await setDoc(doc(db, 'users', player.id), {
-                    username: fresh.username,
-                    avatarUrl: fresh.avatarUrl,
-                    v4rxPp: fresh.v4rxPp,
-                    v4rxRank: fresh.v4rxRank,
-                    v4rxAccuracy: fresh.v4rxAccuracy,
-                  }, { merge: true }).catch(() => {});
-                }
-              } catch {
-                // Ignore individual sync errors
+                await setDoc(doc(db, 'users', player.id), {
+                  username: fresh.username,
+                  avatarUrl: fresh.avatarUrl,
+                  v4rxPp: fresh.v4rxPp,
+                  v4rxRank: fresh.v4rxRank,
+                  v4rxAccuracy: fresh.v4rxAccuracy,
+                }, { merge: true }).catch(() => {});
               }
+            } catch {
+              // Ignore individual sync errors
             }
-          });
-          Promise.all(syncPromises).catch(() => {});
-        }
-      }, (err) => {
-        console.error('Leaderboard realtime fetch error:', err);
-        setLoading(false);
-      });
+          }
+        });
+        Promise.all(syncPromises).catch(() => {});
+      }
+    }, (err) => {
+      console.error('Leaderboard realtime fetch error:', err);
+      clearTimeout(timer);
+      setLoading(false);
+    });
 
-    return () => unsub();
+    return () => {
+      clearTimeout(timer);
+      unsub();
+    };
   }, []);
 
   const handleRefresh = async () => {
