@@ -48,6 +48,13 @@ async function getLiveLeaderboard() {
   return leaderboardCache || [];
 }
 
+function countryCodeToEmoji(code) {
+  if (!code || code.length !== 2) return '🇮🇩';
+  const clean = code.toUpperCase();
+  const codePoints = clean.split('').map(char => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+}
+
 export default async function handler(req, res) {
   // CORS headers
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -79,7 +86,9 @@ export default async function handler(req, res) {
   let liveName = matched ? matched.username : (isNumeric ? `Player #${cleanId}` : cleanId);
   let liveId = matched ? matched.id : cleanId;
 
-  // Presets fallback if scraper didn't catch specific profile
+  // Default presets fallback
+  let countryCode = 'ID';
+
   if (!matched) {
     if (cleanLower === '453' || cleanLower === 'foshy') { liveRank = 1; livePp = 65336; liveName = 'foshy'; liveId = '453'; }
     else if (cleanLower === '43' || cleanLower === 'melancholy') { liveRank = 2; livePp = 60969; liveName = 'Melancholy'; liveId = '43'; }
@@ -89,11 +98,11 @@ export default async function handler(req, res) {
     else if (cleanLower === '23' || cleanLower === 'cookedfishrx') { liveRank = 42; livePp = 24754; liveName = 'CookedFishRX'; liveId = '23'; }
     else if (cleanLower === '1051' || cleanLower === 'transcensionism') { liveRank = 61; livePp = 21822; liveName = 'Transcensionism'; liveId = '1051'; }
     else if (cleanLower === '85' || cleanLower === 'sim') { liveRank = 82; livePp = 19062; liveName = 'Sim'; liveId = '85'; }
+    else if (cleanLower === '2' || cleanLower === 'unclem') { liveRank = 169; livePp = 12746; liveName = 'unclem'; liveId = '2'; countryCode = 'BY'; }
   }
 
   // 2. Fetch individual profile page to extract EXACT username capitalization, Accuracy, and Country
   let acc = 96.85;
-  let countryCode = 'ID';
 
   try {
     const profileUrl = `https://v4rx.me/user/profile.php?id=${liveId}`;
@@ -108,7 +117,10 @@ export default async function handler(req, res) {
       const h1Match = pText.match(/<h1[^>]*class="[^"]*truncate[^"]*"[^>]*>\s*(.*?)\s*<\/h1>/i) ||
                       pText.match(/<title>(.*?)'s Profile<\/title>/i);
       const accMatch = pText.match(/(\d{2}\.\d{1,2})\s*%/i) || pText.match(/Accuracy:\s*([\d.]+)/i);
-      const cMatch = pText.match(/flag-icon-([a-z]{2})/i) || pText.match(/country[=_"']([a-z]{2})/i);
+      const cMatch = pText.match(/flagsapi\.com\/([A-Z]{2})/i) ||
+                     pText.match(/alt=["']([A-Z]{2})["'][^>]*class=["'][^"']*h-5/i) ||
+                     pText.match(/flag-icon-([a-z]{2})/i) ||
+                     pText.match(/country[=_"']([a-z]{2})/i);
 
       if (h1Match && h1Match[1].trim() && !h1Match[1].toLowerCase().includes('v4rx')) {
         liveName = h1Match[1].replace(/'s Profile/i, '').trim();
@@ -132,7 +144,7 @@ export default async function handler(req, res) {
     username: liveName,
     avatarUrl: `https://v4rx.me/user/avatar/${liveId}.png`,
     countryCode,
-    countryFlag: '🇮🇩',
+    countryFlag: countryCodeToEmoji(countryCode),
     v4rxRank: liveRank,
     v4rxPp: livePp,
     v4rxAccuracy: acc,

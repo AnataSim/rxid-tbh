@@ -225,19 +225,23 @@ export async function fetchUserProfile(uid: string): Promise<User | null> {
   }
 
   // Auto-heal profiles stored with fallback "Player #..." or missing data
-  if (profile.osuId || (profile.username && profile.username.startsWith('Player #'))) {
-    const targetId = profile.osuId || profile.username.replace('Player #', '').trim();
+  if (profile.osuId || profile.username) {
+    const targetId = profile.osuId || profile.username.trim();
     if (targetId) {
       fetchV4rxProfile(targetId).then(fresh => {
         if (fresh && fresh.username && !fresh.username.startsWith('Player #')) {
           profile.username = fresh.username;
           profile.avatarUrl = fresh.avatarUrl;
+          profile.countryCode = fresh.countryCode;
+          profile.countryFlag = fresh.countryFlag;
           profile.v4rxRank = fresh.v4rxRank;
           profile.v4rxPp = fresh.v4rxPp;
           profile.v4rxAccuracy = fresh.v4rxAccuracy;
           setDoc(doc(db, 'users', uid), {
             username: fresh.username,
             avatarUrl: fresh.avatarUrl,
+            countryCode: fresh.countryCode,
+            countryFlag: fresh.countryFlag,
             v4rxRank: fresh.v4rxRank,
             v4rxPp: fresh.v4rxPp,
             v4rxAccuracy: fresh.v4rxAccuracy,

@@ -72,52 +72,55 @@ export const Leaderboard: React.FC = () => {
       setLoading(false);
       cacheService.set('bountyosu_leaderboard_cache', cleanList, 60 * 60 * 1000);
 
-      // Only sync real v4rx.me profile data for players with missing or unpopulated profile data
-      const playersNeedingSync = cleanList.filter(player => {
-        const isMissingData = !player.v4rxPp || player.v4rxPp === 0 || !player.v4rxRank || player.username.startsWith('Player #');
-        return isMissingData;
-      });
-
-      if (playersNeedingSync.length > 0) {
-        const syncPromises = playersNeedingSync.map(async player => {
-          const idToSync = player.osuId || (player.username && player.username.startsWith('Player #') ? player.username.replace('Player #', '') : null);
-          if (idToSync) {
-            try {
-              const fresh = await fetchV4rxProfile(idToSync);
-              if (
-                fresh &&
-                fresh.username &&
-                !fresh.username.startsWith('Player #') &&
-                (fresh.username !== player.username || fresh.v4rxPp !== player.v4rxPp || fresh.v4rxAccuracy !== player.v4rxAccuracy || fresh.v4rxRank !== player.v4rxRank)
-              ) {
-                setPlayers(prev => {
-                  const updated = prev.map(p => p.id === player.id ? {
-                    ...p,
-                    username: fresh.username,
-                    avatarUrl: fresh.avatarUrl,
-                    v4rxPp: fresh.v4rxPp,
-                    v4rxRank: fresh.v4rxRank,
-                    v4rxAccuracy: fresh.v4rxAccuracy,
-                  } : p);
-                  cacheService.set('bountyosu_leaderboard_cache', updated, 60 * 60 * 1000);
-                  return updated;
-                });
-
-                await setDoc(doc(db, 'users', player.id), {
+      // Sync real v4rx.me profile data (pp, rank, accuracy, countryCode, countryFlag) for all players
+      const syncPromises = cleanList.map(async player => {
+        const idToSync = player.osuId || (player.username ? player.username.trim() : null);
+        if (idToSync) {
+          try {
+            const fresh = await fetchV4rxProfile(idToSync);
+            if (
+              fresh &&
+              fresh.username &&
+              !fresh.username.startsWith('Player #') &&
+              (
+                fresh.username !== player.username ||
+                fresh.countryCode !== player.countryCode ||
+                fresh.v4rxPp !== player.v4rxPp ||
+                fresh.v4rxAccuracy !== player.v4rxAccuracy ||
+                fresh.v4rxRank !== player.v4rxRank
+              )
+            ) {
+              setPlayers(prev => {
+                const updated = prev.map(p => p.id === player.id ? {
+                  ...p,
                   username: fresh.username,
                   avatarUrl: fresh.avatarUrl,
+                  countryCode: fresh.countryCode,
+                  countryFlag: fresh.countryFlag,
                   v4rxPp: fresh.v4rxPp,
                   v4rxRank: fresh.v4rxRank,
                   v4rxAccuracy: fresh.v4rxAccuracy,
-                }, { merge: true }).catch(() => {});
-              }
-            } catch {
-              // Ignore individual sync errors
+                } : p);
+                cacheService.set('bountyosu_leaderboard_cache', updated, 60 * 60 * 1000);
+                return updated;
+              });
+
+              await setDoc(doc(db, 'users', player.id), {
+                username: fresh.username,
+                avatarUrl: fresh.avatarUrl,
+                countryCode: fresh.countryCode,
+                countryFlag: fresh.countryFlag,
+                v4rxPp: fresh.v4rxPp,
+                v4rxRank: fresh.v4rxRank,
+                v4rxAccuracy: fresh.v4rxAccuracy,
+              }, { merge: true }).catch(() => {});
             }
+          } catch {
+            // Ignore individual sync errors
           }
-        });
-        Promise.all(syncPromises).catch(() => {});
-      }
+        }
+      });
+      Promise.all(syncPromises).catch(() => {});
     }, (err) => {
       console.error('Leaderboard realtime fetch error:', err);
       clearTimeout(timer);

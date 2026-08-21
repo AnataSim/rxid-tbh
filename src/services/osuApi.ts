@@ -276,6 +276,13 @@ async function fetchBeatmapMetadataInternal(validSetId: number, validMapId: numb
   };
 }
 
+export function countryCodeToEmoji(code?: string): string {
+  if (!code || code.length !== 2) return '🇮🇩';
+  const clean = code.toUpperCase();
+  const codePoints = clean.split('').map(char => 127397 + char.charCodeAt(0));
+  return String.fromCodePoint(...codePoints);
+}
+
 // ── v4rx Profile Fetcher ──────────────────────────────────────────────────────
 
 export interface V4rxFetchedProfile {
@@ -346,7 +353,10 @@ async function fetchV4rxProfileInternal(clean: string): Promise<V4rxFetchedProfi
           const ppMatch      = text.match(/(\d+)pp/i);
           const accMatch     = text.match(/(\d{2}\.\d{1,2})\s*%/i) || text.match(/Accuracy:\s*([\d.]+)/i);
           const rankMatch    = text.match(/#(\d+)/i) || text.match(/fa-hashtag[^>]*><\/i>\s*(\d+)/i);
-          const countryMatch = text.match(/flag-icon-([a-z]{2})/i) || text.match(/country[=_"']([a-z]{2})/i);
+          const countryMatch = text.match(/flagsapi\.com\/([A-Z]{2})/i) ||
+                               text.match(/alt=["']([A-Z]{2})["'][^>]*class=["'][^"']*h-5/i) ||
+                               text.match(/flag-icon-([a-z]{2})/i) ||
+                               text.match(/country[=_"']([a-z]{2})/i);
 
           if (h1Match || titleMatch) {
             let username = (h1Match ? h1Match[1] : titleMatch![1]).replace(/'s Profile/i, '').trim();
@@ -368,7 +378,7 @@ async function fetchV4rxProfileInternal(clean: string): Promise<V4rxFetchedProfi
               username,
               avatarUrl: `https://v4rx.me/user/avatar/${clean}.png`,
               countryCode: cCode,
-              countryFlag: '🇮🇩',
+              countryFlag: countryCodeToEmoji(cCode),
               v4rxRank: rank,
               v4rxPp: pp,
               v4rxAccuracy: acc,
@@ -405,6 +415,9 @@ async function fetchV4rxProfileInternal(clean: string): Promise<V4rxFetchedProfi
   }
   if (clean === '85' || clean === '83' || clean.toLowerCase() === 'sim' || clean.toLowerCase() === 'zennia') {
     return { id: clean || '85', username: 'Sim', avatarUrl: `https://v4rx.me/user/avatar/${clean || '85'}.png`, countryCode: 'ID', countryFlag: '🇮🇩', v4rxRank: 82, v4rxPp: 19062, v4rxAccuracy: 94.91 };
+  }
+  if (clean === '2' || clean.toLowerCase() === 'unclem') {
+    return { id: '2', username: 'unclem', avatarUrl: 'https://v4rx.me/user/avatar/2.png', countryCode: 'BY', countryFlag: '🇧🇾', v4rxRank: 169, v4rxPp: 12746, v4rxAccuracy: 96.66 };
   }
 
   // 3. Fallback for any unmapped numeric user ID
