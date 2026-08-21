@@ -9,6 +9,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { User } from '../types/bounty';
+import { fetchV4rxProfile } from './osuApi';
+import { buildAvatarUrl } from './authService';
 
 export interface FriendRequest {
   id: string;
@@ -42,10 +44,6 @@ export interface UserSearchResult {
  * Sends a friend invitation matching Firestore security rules:
  * Path: /users/{targetUid}/friendRequests/{fromUid}
  */
-/**
- * Sends a friend invitation matching Firestore security rules:
- * Path: /users/{targetUid}/friendRequests/{fromUid}
- */
 export const sendFriendInvitation = async (
   fromUser: User, 
   targetUsernameOrUid: string
@@ -55,6 +53,10 @@ export const sendFriendInvitation = async (
 
   const currentUid = fromUser.id || fromUser.uid;
   const currentUsername = (fromUser.username || '').trim().toLowerCase();
+
+  if (cleanTarget === currentUid.toLowerCase() || (currentUsername && cleanTarget === currentUsername)) {
+    throw new Error('Kamu tidak dapat mengirim undangan pertemanan ke diri sendiri.');
+  }
 
   // 1. Search 'users' collection in Firestore strictly for registered accounts
   const usersSnap = await getDocs(collection(db, 'users'));
@@ -69,10 +71,47 @@ export const sendFriendInvitation = async (
       targetUser = {
         uid: d.id,
         username: data.username || targetUsernameOrUid.trim(),
-        photoURL: data.avatarUrl || data.photoURL || null,
+        photoURL: data.avatarUrl || data.photoURL || buildAvatarUrl(data.osuId, data.username),
       };
     }
   });
+
+  // 2. Search bounty submissions if user not found in registered accounts
+  if (!targetUser) {
+    const bountiesSnap = await getDocs(collection(db, 'bounties'));
+    for (const bDoc of bountiesSnap.docs) {
+      const subSnap = await getDocs(collection(db, 'bounties', bDoc.id, 'submissions'));
+      for (const sDoc of subSnap.docs) {
+        const sData = sDoc.data();
+        const hunterName = (sData.hunterUsername || '').toLowerCase();
+        if (hunterName === cleanTarget) {
+          targetUser = {
+            uid: sData.hunterId || `hunter_${hunterName}`,
+            username: sData.hunterUsername,
+            photoURL: sData.hunterAvatar || buildAvatarUrl(undefined, sData.hunterUsername),
+          };
+          break;
+        }
+      }
+      if (targetUser) break;
+    }
+  }
+
+  // 3. Fallback: Search v4rx.me profile API (e.g. for darkww, foshy, etc.)
+  if (!targetUser) {
+    try {
+      const vProf = await fetchV4rxProfile(cleanTarget);
+      if (vProf && vProf.username && !vProf.username.startsWith('Player #')) {
+        targetUser = {
+          uid: `v4rx_${vProf.id || vProf.username.toLowerCase()}`,
+          username: vProf.username,
+          photoURL: vProf.avatarUrl || buildAvatarUrl(vProf.id, vProf.username),
+        };
+      }
+    } catch {
+      // ignore
+    }
+  }
 
   if (!targetUser) {
     throw new Error(`User atau UID "${targetUsernameOrUid}" tidak ditemukan di sistem.`);
@@ -85,14 +124,14 @@ export const sendFriendInvitation = async (
     throw new Error('Kamu tidak dapat mengirim undangan pertemanan ke diri sendiri.');
   }
 
-  // 2. Check if already friends at /users/{currentUid}/friends/{targetUid}
+  // 4. Check if already friends at /users/{currentUid}/friends/{targetUid}
   const friendDocRef = doc(db, 'users', currentUid, 'friends', targetUid);
   const friendSnap = await getDoc(friendDocRef);
   if (friendSnap.exists()) {
     throw new Error(`Kamu sudah berteman dengan "${validTarget.username}".`);
   }
 
-  // 3. Create new friend request at /users/{targetUid}/friendRequests/{fromUid}
+  // 5. Create new friend request at /users/{targetUid}/friendRequests/{currentUid}
   const requestDocRef = doc(db, 'users', targetUid, 'friendRequests', currentUid);
   const existingSnap = await getDoc(requestDocRef);
   if (existingSnap.exists()) {
@@ -197,8 +236,7 @@ export const rejectFriendInvitation = async (currentUid: string, requestId: stri
 };
 
 /**
- * Searches strictly for existing users in Firestore.
- * Does NOT return dummy synthetic candidates if the user doesn't exist in database!
+ * Searches strictly for existing users in Firestore or v4rx.me profiles.
  */
 export const searchUsernames = async (
   searchQuery: string,
@@ -211,6 +249,7 @@ export const searchUsernames = async (
   try {
     const resultsMap = new Map<string, UserSearchResult>();
 
+    // 1. Search 'users' collection in Firestore
     const usersSnap = await getDocs(collection(db, 'users'));
     usersSnap.forEach((d) => {
       const uid = d.id;
@@ -225,15 +264,60 @@ export const searchUsernames = async (
         (data.email && data.email.toLowerCase().includes(clean))
       ) {
         const isSelf = uid === currentUid || (currentUsername && username.trim().toLowerCase() === currentUsername.trim().toLowerCase());
+        const avatar = data.avatarUrl || data.photoURL || buildAvatarUrl(data.osuId, username);
         resultsMap.set(uid, {
           uid,
           displayName: username,
-          photoURL: data.avatarUrl || data.photoURL || null,
+          photoURL: avatar,
           osuId: data.osuId,
           isSelf: Boolean(isSelf),
         });
       }
     });
+
+    // 2. Search bounty submissions for hunters matching the query
+    if (resultsMap.size === 0) {
+      const bountiesSnap = await getDocs(collection(db, 'bounties'));
+      for (const bDoc of bountiesSnap.docs) {
+        const subSnap = await getDocs(collection(db, 'bounties', bDoc.id, 'submissions'));
+        for (const sDoc of subSnap.docs) {
+          const sData = sDoc.data();
+          const hunterName = sData.hunterUsername || '';
+          if (hunterName.toLowerCase().includes(clean)) {
+            const hunterUid = sData.hunterId || `hunter_${hunterName.toLowerCase()}`;
+            const isSelf = hunterUid === currentUid || (currentUsername && hunterName.trim().toLowerCase() === currentUsername.trim().toLowerCase());
+            if (!resultsMap.has(hunterUid)) {
+              resultsMap.set(hunterUid, {
+                uid: hunterUid,
+                displayName: hunterName,
+                photoURL: sData.hunterAvatar || buildAvatarUrl(undefined, hunterName),
+                isSelf: Boolean(isSelf),
+              });
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Fallback: Search v4rx.me profile API (e.g. for darkww, foshy, etc.)
+    if (resultsMap.size === 0) {
+      try {
+        const vProf = await fetchV4rxProfile(clean);
+        if (vProf && vProf.username && !vProf.username.startsWith('Player #')) {
+          const vUid = `v4rx_${vProf.id || vProf.username.toLowerCase()}`;
+          const isSelf = vUid === currentUid || (currentUsername && vProf.username.trim().toLowerCase() === currentUsername.trim().toLowerCase());
+          resultsMap.set(vUid, {
+            uid: vUid,
+            displayName: vProf.username,
+            photoURL: vProf.avatarUrl || buildAvatarUrl(vProf.id, vProf.username),
+            osuId: vProf.id,
+            isSelf: Boolean(isSelf),
+          });
+        }
+      } catch {
+        // ignore
+      }
+    }
 
     return Array.from(resultsMap.values()).slice(0, 8);
   } catch (err) {
