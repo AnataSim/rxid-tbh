@@ -30,6 +30,10 @@ export const Leaderboard: React.FC = () => {
     );
 
     const unsub = onSnapshot(q, (snapshot) => {
+      // Skip local Firestore cache snapshots — only process data confirmed by the server
+      // This prevents a stale-cache flash where old BP values show before server responds
+      if (snapshot.metadata.fromCache) return;
+
       const docs = snapshot.docs.map(d => ({ docId: d.id, data: d.data() as User }));
 
       // Auto-clean duplicate docs in Firestore with identical username

@@ -11,10 +11,20 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // 1. Users Collection — Public read (Leaderboard), write terbatas pemilik UID
+    // Only these fields are allowed to be updated by any authenticated user (for BP sync)
+    function isBpSyncUpdate() {
+      return isAuthenticated() &&
+        request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['bountyPoints', 'bountiesClaimedCount', 'lastBpUpdatedAtServer']);
+    }
+
+    // 1. Users Collection — Read by any authenticated user (Leaderboard)
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow create, update: if isOwner(userId);
+
+      // Owner can create or update any field on their own profile
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isBpSyncUpdate();
 
       // Sub-collection Friends — Realtime syncing between friends
       match /friends/{friendId} {
