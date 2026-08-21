@@ -129,7 +129,7 @@ export async function registerUser(data: RegisterData): Promise<User> {
   const title     = assignTitle(v4rxPp);
   const nowIso    = new Date().toISOString();
 
-  const isSim = username.trim().toLowerCase() === 'sim';
+  const isGiverAccount = ['sim', 'darkww', '63', '85'].includes(username.trim().toLowerCase()) || (osuId ? ['63', '85'].includes(osuId.trim()) : false);
 
   const profile: User = {
     id:                  firebaseUser.uid,
@@ -144,7 +144,7 @@ export async function registerUser(data: RegisterData): Promise<User> {
     v4rxPp,
     v4rxAccuracy,
     playCount:           0,
-    role:                isSim ? 'bounty_giver' : 'bounty_hunter',
+    role:                isGiverAccount ? 'bounty_giver' : 'bounty_hunter',
     bountyPoints:        100,
     bountiesPostedCount: 0,
     bountiesClaimedCount:0,
@@ -216,8 +216,10 @@ export async function fetchUserProfile(uid: string): Promise<User | null> {
   if (!snap.exists()) return null;
   const profile = snap.data() as User;
 
-  // Automatically ensure account Sim is assigned Bounty Giver (BG) role
-  if (profile.username && profile.username.trim().toLowerCase() === 'sim' && profile.role !== 'bounty_giver') {
+  // Automatically ensure account Sim and darkww are assigned Bounty Giver (BG) role
+  const lowerName = (profile.username || '').trim().toLowerCase();
+  const isGiverAccount = ['sim', 'darkww', '63', '85'].includes(lowerName) || (profile.osuId ? ['63', '85'].includes(profile.osuId.trim()) : false);
+  if (isGiverAccount && profile.role !== 'bounty_giver') {
     profile.role = 'bounty_giver';
     setDoc(doc(db, 'users', uid), { role: 'bounty_giver' }, { merge: true }).catch(() => {});
   }

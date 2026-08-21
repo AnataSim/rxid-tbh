@@ -94,27 +94,32 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ user, onClos
             <h2 style={{ fontSize: 20, fontWeight: 800, color: 'var(--text-1)', letterSpacing: '-0.4px' }}>
               {user.username}
             </h2>
-            <span
-              title={(user.username.toLowerCase() === 'sim') ? 'Role: Bounty Giver (BG)' : 'Role: Bounty Hunter (TBH)'}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                padding: '2px 8px',
-                borderRadius: 6,
-                fontSize: 11,
-                fontWeight: 700,
-                letterSpacing: '0.3px',
-                background: user.username.toLowerCase() === 'sim' ? 'rgba(255, 77, 141, 0.15)' : 'rgba(34, 211, 238, 0.15)',
-                border: `1px solid ${user.username.toLowerCase() === 'sim' ? 'rgba(255, 77, 141, 0.4)' : 'rgba(34, 211, 238, 0.4)'}`,
-                color: user.username.toLowerCase() === 'sim' ? '#ff4d8d' : '#22d3ee',
-                boxShadow: user.username.toLowerCase() === 'sim' ? '0 0 10px rgba(255, 77, 141, 0.2)' : '0 0 10px rgba(34, 211, 238, 0.2)',
-                lineHeight: 1.2,
-                cursor: 'default',
-              }}
-            >
-              {user.username.toLowerCase() === 'sim' ? 'BG' : 'TBH'}
-            </span>
+          {(() => {
+            const isGiver = (user as any).role === 'bounty_giver' || ['sim', 'darkww', '63', '85'].includes((user.username || '').toLowerCase());
+            return (
+              <span
+                title={isGiver ? 'Role: Bounty Giver (BG)' : 'Role: Bounty Hunter (TBH)'}
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 4,
+                  padding: '2px 8px',
+                  borderRadius: 6,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  letterSpacing: '0.3px',
+                  background: isGiver ? 'rgba(255, 77, 141, 0.15)' : 'rgba(34, 211, 238, 0.15)',
+                  border: `1px solid ${isGiver ? 'rgba(255, 77, 141, 0.4)' : 'rgba(34, 211, 238, 0.4)'}`,
+                  color: isGiver ? '#ff4d8d' : '#22d3ee',
+                  boxShadow: isGiver ? '0 0 10px rgba(255, 77, 141, 0.2)' : '0 0 10px rgba(34, 211, 238, 0.2)',
+                  lineHeight: 1.2,
+                  cursor: 'default',
+                }}
+              >
+                {isGiver ? 'BG' : 'TBH'}
+              </span>
+            );
+          })()}
             <BugHunterIcon username={user.username} />
           </div>
 
