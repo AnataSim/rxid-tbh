@@ -65,41 +65,48 @@ export const Leaderboard: React.FC = () => {
         setPlayers(cleanList);
         setLoading(false);
 
-        // Auto-sync real v4rx.me profile data in background without blocking UI
-        const syncPromises = cleanList.map(async player => {
-          const idToSync = player.osuId || (player.username && player.username.startsWith('Player #') ? player.username.replace('Player #', '') : null);
-          if (idToSync) {
-            try {
-              const fresh = await fetchV4rxProfile(idToSync);
-              if (
-                fresh &&
-                fresh.username &&
-                !fresh.username.startsWith('Player #') &&
-                (fresh.username !== player.username || fresh.v4rxPp !== player.v4rxPp || fresh.v4rxAccuracy !== player.v4rxAccuracy || fresh.v4rxRank !== player.v4rxRank)
-              ) {
-                setPlayers(prev => prev.map(p => p.id === player.id ? {
-                  ...p,
-                  username: fresh.username,
-                  avatarUrl: fresh.avatarUrl,
-                  v4rxPp: fresh.v4rxPp,
-                  v4rxRank: fresh.v4rxRank,
-                  v4rxAccuracy: fresh.v4rxAccuracy,
-                } : p));
-
-                await setDoc(doc(db, 'users', player.id), {
-                  username: fresh.username,
-                  avatarUrl: fresh.avatarUrl,
-                  v4rxPp: fresh.v4rxPp,
-                  v4rxRank: fresh.v4rxRank,
-                  v4rxAccuracy: fresh.v4rxAccuracy,
-                }, { merge: true }).catch(() => {});
-              }
-            } catch {
-              // Ignore individual sync errors
-            }
-          }
+        // Only sync real v4rx.me profile data for players with missing or unpopulated profile data
+        const playersNeedingSync = cleanList.filter(player => {
+          const isMissingData = !player.v4rxPp || player.v4rxPp === 0 || !player.v4rxRank || player.username.startsWith('Player #');
+          return isMissingData;
         });
-        Promise.all(syncPromises).catch(() => {});
+
+        if (playersNeedingSync.length > 0) {
+          const syncPromises = playersNeedingSync.map(async player => {
+            const idToSync = player.osuId || (player.username && player.username.startsWith('Player #') ? player.username.replace('Player #', '') : null);
+            if (idToSync) {
+              try {
+                const fresh = await fetchV4rxProfile(idToSync);
+                if (
+                  fresh &&
+                  fresh.username &&
+                  !fresh.username.startsWith('Player #') &&
+                  (fresh.username !== player.username || fresh.v4rxPp !== player.v4rxPp || fresh.v4rxAccuracy !== player.v4rxAccuracy || fresh.v4rxRank !== player.v4rxRank)
+                ) {
+                  setPlayers(prev => prev.map(p => p.id === player.id ? {
+                    ...p,
+                    username: fresh.username,
+                    avatarUrl: fresh.avatarUrl,
+                    v4rxPp: fresh.v4rxPp,
+                    v4rxRank: fresh.v4rxRank,
+                    v4rxAccuracy: fresh.v4rxAccuracy,
+                  } : p));
+
+                  await setDoc(doc(db, 'users', player.id), {
+                    username: fresh.username,
+                    avatarUrl: fresh.avatarUrl,
+                    v4rxPp: fresh.v4rxPp,
+                    v4rxRank: fresh.v4rxRank,
+                    v4rxAccuracy: fresh.v4rxAccuracy,
+                  }, { merge: true }).catch(() => {});
+                }
+              } catch {
+                // Ignore individual sync errors
+              }
+            }
+          });
+          Promise.all(syncPromises).catch(() => {});
+        }
       }, (err) => {
         console.error('Leaderboard realtime fetch error:', err);
         setLoading(false);

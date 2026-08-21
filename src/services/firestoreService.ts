@@ -49,15 +49,12 @@ export function subscribeToBounties(
         }));
 
         let beatmap = data.beatmap;
-        // Auto-enrich fallback beatmap titles or outdated star/duration metadata in Firestore
+        // Auto-enrich fallback beatmap titles only if metadata is missing or placeholder
         if (
           !beatmap ||
           !beatmap.title ||
           beatmap.title.startsWith('Beatmap Set #') ||
-          beatmap.artist === 'osu! Artist' ||
-          beatmap.starRating === 7.5 ||
-          beatmap.starRating === 7.49 ||
-          beatmap.durationFormatted === '02:40'
+          beatmap.artist === 'osu! Artist'
         ) {
           const setId = beatmap?.beatmapsetId || 465035;
           const mapId = beatmap?.beatmapId;
