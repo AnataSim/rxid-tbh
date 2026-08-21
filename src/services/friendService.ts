@@ -250,33 +250,37 @@ export const searchUsernames = async (
     const resultsMap = new Map<string, UserSearchResult>();
 
     // 1. Search 'users' collection in Firestore
-    const usersSnap = await getDocs(collection(db, 'users'));
-    usersSnap.forEach((d) => {
-      const uid = d.id;
-      const data = d.data();
-      const username = data.username || data.email?.split('@')[0] || 'User';
-      const osuIdStr = (data.osuId || '').toString().toLowerCase();
+    try {
+      const usersSnap = await getDocs(collection(db, 'users'));
+      usersSnap.forEach((d) => {
+        const uid = d.id;
+        const data = d.data();
+        const username = data.username || data.email?.split('@')[0] || 'User';
+        const osuIdStr = (data.osuId || '').toString().toLowerCase();
 
-      if (
-        username.toLowerCase().includes(clean) ||
-        osuIdStr.includes(clean) ||
-        uid.toLowerCase().includes(clean) ||
-        (data.email && data.email.toLowerCase().includes(clean))
-      ) {
-        const isSelf = uid === currentUid || (currentUsername && username.trim().toLowerCase() === currentUsername.trim().toLowerCase());
-        const avatar = data.avatarUrl || data.photoURL || buildAvatarUrl(data.osuId, username);
-        resultsMap.set(uid, {
-          uid,
-          displayName: username,
-          photoURL: avatar,
-          osuId: data.osuId,
-          isSelf: Boolean(isSelf),
-        });
-      }
-    });
+        if (
+          username.toLowerCase().includes(clean) ||
+          osuIdStr.includes(clean) ||
+          uid.toLowerCase().includes(clean) ||
+          (data.email && data.email.toLowerCase().includes(clean))
+        ) {
+          const isSelf = uid === currentUid || (currentUsername && username.trim().toLowerCase() === currentUsername.trim().toLowerCase());
+          const avatar = data.avatarUrl || data.photoURL || buildAvatarUrl(data.osuId, username);
+          resultsMap.set(username.toLowerCase(), {
+            uid,
+            displayName: username,
+            photoURL: avatar,
+            osuId: data.osuId,
+            isSelf: Boolean(isSelf),
+          });
+        }
+      });
+    } catch (err) {
+      console.warn('Firestore users search error:', err);
+    }
 
     // 2. Search bounty submissions for hunters matching the query
-    if (resultsMap.size === 0) {
+    try {
       const bountiesSnap = await getDocs(collection(db, 'bounties'));
       for (const bDoc of bountiesSnap.docs) {
         const subSnap = await getDocs(collection(db, 'bounties', bDoc.id, 'submissions'));
@@ -284,10 +288,11 @@ export const searchUsernames = async (
           const sData = sDoc.data();
           const hunterName = sData.hunterUsername || '';
           if (hunterName.toLowerCase().includes(clean)) {
-            const hunterUid = sData.hunterId || `hunter_${hunterName.toLowerCase()}`;
-            const isSelf = hunterUid === currentUid || (currentUsername && hunterName.trim().toLowerCase() === currentUsername.trim().toLowerCase());
-            if (!resultsMap.has(hunterUid)) {
-              resultsMap.set(hunterUid, {
+            const lowerName = hunterName.toLowerCase();
+            if (!resultsMap.has(lowerName)) {
+              const hunterUid = sData.hunterId || `hunter_${lowerName}`;
+              const isSelf = hunterUid === currentUid || (currentUsername && lowerName === currentUsername.trim().toLowerCase());
+              resultsMap.set(lowerName, {
                 uid: hunterUid,
                 displayName: hunterName,
                 photoURL: sData.hunterAvatar || buildAvatarUrl(undefined, hunterName),
@@ -297,16 +302,19 @@ export const searchUsernames = async (
           }
         }
       }
+    } catch {
+      // ignore
     }
 
-    // 3. Fallback: Search v4rx.me profile API (e.g. for darkww, foshy, etc.)
-    if (resultsMap.size === 0) {
-      try {
-        const vProf = await fetchV4rxProfile(clean);
-        if (vProf && vProf.username && !vProf.username.startsWith('Player #')) {
-          const vUid = `v4rx_${vProf.id || vProf.username.toLowerCase()}`;
-          const isSelf = vUid === currentUid || (currentUsername && vProf.username.trim().toLowerCase() === currentUsername.trim().toLowerCase());
-          resultsMap.set(vUid, {
+    // 3. Search v4rx.me profile API (e.g. for darkww, foshy, etc.)
+    try {
+      const vProf = await fetchV4rxProfile(clean);
+      if (vProf && vProf.username && !vProf.username.startsWith('Player #')) {
+        const lowerName = vProf.username.toLowerCase();
+        if (!resultsMap.has(lowerName) || (clean === lowerName && (!resultsMap.get(lowerName)?.photoURL || resultsMap.get(lowerName)?.photoURL?.includes('ui-avatars')))) {
+          const vUid = `v4rx_${vProf.id || lowerName}`;
+          const isSelf = vUid === currentUid || (currentUsername && lowerName === currentUsername.trim().toLowerCase());
+          resultsMap.set(lowerName, {
             uid: vUid,
             displayName: vProf.username,
             photoURL: vProf.avatarUrl || buildAvatarUrl(vProf.id, vProf.username),
@@ -314,12 +322,22 @@ export const searchUsernames = async (
             isSelf: Boolean(isSelf),
           });
         }
-      } catch {
-        // ignore
       }
+    } catch {
+      // ignore
     }
 
-    return Array.from(resultsMap.values()).slice(0, 8);
+    // Sort results: Exact username match first!
+    const resultsList = Array.from(resultsMap.values());
+    resultsList.sort((a, b) => {
+      const aExact = a.displayName.toLowerCase() === clean;
+      const bExact = b.displayName.toLowerCase() === clean;
+      if (aExact && !bExact) return -1;
+      if (!aExact && bExact) return 1;
+      return a.displayName.localeCompare(b.displayName);
+    });
+
+    return resultsList.slice(0, 8);
   } catch (err) {
     console.warn('Gagal mencari username:', err);
     return [];

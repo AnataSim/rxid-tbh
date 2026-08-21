@@ -47,6 +47,7 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [sendLoading, setSendLoading] = useState(false);
   const [sendFeedback, setSendFeedback] = useState<{ type: 'success' | 'error'; msg: string } | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserSearchResult | null>(null);
 
   // Live search effect as user types targetUsername
   useEffect(() => {
@@ -226,6 +227,7 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({
           <button
             onClick={() => {
               setIsAddModalOpen(true);
+              setSelectedUser(null);
               setSendFeedback(null);
             }}
             style={{
@@ -410,12 +412,59 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({
                   placeholder="Ketik username / UID (cth: Sim atau 85)..."
                   className="input-clean"
                   value={targetUsername}
-                  onChange={(e) => setTargetUsername(e.target.value)}
+                  onChange={(e) => {
+                    setTargetUsername(e.target.value);
+                    if (selectedUser && selectedUser.displayName.toLowerCase() !== e.target.value.trim().toLowerCase()) {
+                      setSelectedUser(null);
+                    }
+                  }}
                   style={{ width: '100%', padding: '10px 14px', borderRadius: 'var(--radius)', background: 'var(--bg)', border: '1px solid var(--border-md)', color: 'var(--text-1)' }}
                 />
 
+                {/* Selected User Preview Card */}
+                {selectedUser && (
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '10px 14px',
+                    borderRadius: 'var(--radius)',
+                    background: 'rgba(34, 197, 94, 0.1)',
+                    border: '1px solid rgba(34, 197, 94, 0.3)',
+                    marginTop: '8px',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <img
+                        src={selectedUser.photoURL || `https://ui-avatars.com/api/?background=251525&color=ff4d8d&name=${encodeURIComponent(selectedUser.displayName)}&bold=true`}
+                        alt={selectedUser.displayName}
+                        onError={(e) => {
+                          e.currentTarget.src = `https://ui-avatars.com/api/?background=251525&color=ff4d8d&name=${encodeURIComponent(selectedUser.displayName)}&bold=true`;
+                        }}
+                        style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '1.5px solid #22c55e' }}
+                      />
+                      <div>
+                        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-1)' }}>
+                          {selectedUser.displayName}
+                        </div>
+                        <span style={{ fontSize: '0.68rem', color: '#22c55e', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                          <Check size={11} /> Profil Dipilih
+                        </span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => { setSelectedUser(null); setTargetUsername(''); }}
+                      style={{ background: 'none', border: 'none', color: 'var(--text-3)', cursor: 'pointer', padding: '4px' }}
+                      title="Batal pilih"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+
                 {/* Real-time Search Suggestions Dropdown */}
-                {targetUsername.trim().length > 0 && (
+                {!selectedUser && targetUsername.trim().length > 0 && (
                   <div
                     style={{
                       position: 'absolute',
@@ -456,7 +505,10 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({
                                 setSendFeedback({ type: 'error', msg: 'Kamu tidak dapat mengirim undangan ke akun sendiri.' });
                                 return;
                               }
-                              sendInvitationToName(res.displayName);
+                              setTargetUsername(res.displayName);
+                              setSelectedUser(res);
+                              setSearchResults([]);
+                              setSendFeedback(null);
                             }}
                             style={{
                               display: 'flex',
@@ -471,26 +523,14 @@ export const FriendsPanel: React.FC<FriendsPanelProps> = ({
                             }}
                           >
                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                              {res.photoURL ? (
-                                <img src={res.photoURL} alt={res.displayName} style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }} />
-                              ) : (
-                                <div
-                                  style={{
-                                    width: '28px',
-                                    height: '28px',
-                                    borderRadius: '50%',
-                                    background: 'linear-gradient(135deg, var(--accent), #f97316)',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    color: '#fff',
-                                    fontWeight: 700,
-                                    fontSize: '0.75rem',
-                                  }}
-                                >
-                                  {res.displayName.charAt(0).toUpperCase()}
-                                </div>
-                              )}
+                              <img
+                                src={res.photoURL || `https://ui-avatars.com/api/?background=251525&color=ff4d8d&name=${encodeURIComponent(res.displayName)}&bold=true`}
+                                alt={res.displayName}
+                                onError={(e) => {
+                                  e.currentTarget.src = `https://ui-avatars.com/api/?background=251525&color=ff4d8d&name=${encodeURIComponent(res.displayName)}&bold=true`;
+                                }}
+                                style={{ width: '28px', height: '28px', borderRadius: '50%', objectFit: 'cover' }}
+                              />
                               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                                 <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-1)' }}>{res.displayName}</span>
                                 {isMe && (
