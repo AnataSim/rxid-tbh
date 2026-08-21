@@ -151,7 +151,7 @@ export const Leaderboard: React.FC = () => {
             <h1 className="page-title">Leaderboard</h1>
           </div>
           <p className="page-sub">
-            Top Bounty Hunters ranked by vPoints earned across v4rx.me beatmap challenges.
+            Top Bounty Hunters ranked by BP earned across v4rx.me beatmap challenges.
           </p>
         </div>
 

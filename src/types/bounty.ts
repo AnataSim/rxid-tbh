@@ -69,7 +69,7 @@ export interface Bounty {
   };
   reward: {
     amount: number;
-    currency: 'BP' | 'vPoints' | 'USD' | 'Supporter';
+    currency: 'BP' | 'USD' | 'Supporter';
   };
   instructions: string;
   rules: string[];

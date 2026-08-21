@@ -3,7 +3,7 @@ import { ShieldAlert, CheckCircle2, Users, Trophy } from 'lucide-react';
 export const RulesPage: React.FC = () => {
   const giverRules = [
     { title: 'Valid osu! Beatmap Link', body: 'Must provide an official osu! beatmap URL (osu.ppy.sh/beatmapsets/…).' },
-    { title: 'Non-refundable Bounty Pool', body: 'Once posted, vPoints are locked into escrow until claimed or expired.' },
+    { title: 'Non-refundable Bounty Pool', body: 'Once posted, BP are locked into escrow until claimed or expired.' },
     { title: 'Clear Requirements', body: 'Mods allowed, target rank, or acc targets must be explicitly specified.' },
     { title: 'Proof Verification', body: 'Must review submitted hunter proof. If rejected without valid cause, points are auto-approved.' },
   ];
