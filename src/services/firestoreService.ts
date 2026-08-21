@@ -184,6 +184,75 @@ export function calculateAwardedBp(baseReward: number, currentBp: number = 100):
 }
 
 /**
+ * Auto-sync & heal user BP and claimed counts across Firestore based on all approved submissions.
+ * This guarantees any out-of-sync profiles (e.g. from past failed updates) get their earned BP restored!
+ */
+export async function syncAllUserBp(): Promise<void> {
+  try {
+    const bountiesSnap = await getDocs(collection(db, BOUNTIES_COL));
+    const userBpMap: Record<string, { bp: number; count: number }> = {};
+    const usernameBpMap: Record<string, { bp: number; count: number }> = {};
+
+    for (const bDoc of bountiesSnap.docs) {
+      const bData = bDoc.data() as Bounty;
+      const baseReward = bData.reward?.amount || 100;
+      const subSnap = await getDocs(collection(db, BOUNTIES_COL, bDoc.id, 'submissions'));
+
+      for (const sDoc of subSnap.docs) {
+        const sData = sDoc.data() as Submission;
+        if (sData.status === 'approved') {
+          const awarded = sData.awardedBp !== undefined ? sData.awardedBp : baseReward;
+          if (sData.hunterId) {
+            if (!userBpMap[sData.hunterId]) userBpMap[sData.hunterId] = { bp: 0, count: 0 };
+            userBpMap[sData.hunterId].bp += awarded;
+            userBpMap[sData.hunterId].count += 1;
+          }
+          if (sData.hunterUsername) {
+            const lowerName = sData.hunterUsername.trim().toLowerCase();
+            if (!usernameBpMap[lowerName]) usernameBpMap[lowerName] = { bp: 0, count: 0 };
+            usernameBpMap[lowerName].bp += awarded;
+            usernameBpMap[lowerName].count += 1;
+          }
+        }
+      }
+    }
+
+    const usersSnap = await getDocs(collection(db, USERS_COL));
+    for (const uDoc of usersSnap.docs) {
+      const uData = uDoc.data() as User;
+      const uid = uDoc.id;
+      const usernameLower = (uData.username || '').trim().toLowerCase();
+
+      const earnedFromUid = userBpMap[uid];
+      const earnedFromName = usernameLower ? usernameBpMap[usernameLower] : null;
+
+      const totalEarnedBp = Math.max(
+        earnedFromUid ? earnedFromUid.bp : 0,
+        earnedFromName ? earnedFromName.bp : 0
+      );
+      const totalClaimedCount = Math.max(
+        earnedFromUid ? earnedFromUid.count : 0,
+        earnedFromName ? earnedFromName.count : 0
+      );
+
+      const expectedBp = 100 + totalEarnedBp;
+
+      if ((uData.bountyPoints || 100) !== expectedBp || (uData.bountiesClaimedCount || 0) !== totalClaimedCount) {
+        await updateDoc(doc(db, USERS_COL, uid), {
+          bountyPoints: expectedBp,
+          bountiesClaimedCount: totalClaimedCount,
+          lastBpUpdatedAtServer: serverTimestamp(),
+        }).catch(() => {});
+      }
+    }
+
+    cacheService.remove('bountyosu_leaderboard_cache');
+  } catch (err) {
+    console.warn('syncAllUserBp error:', err);
+  }
+}
+
+/**
  * Approve a submission → sets submission status to 'approved', bounty to 'completed', awards scaled BP to hunter based on current BP tier, and notifies hunter
  */
 export async function approveSubmission(
@@ -197,47 +266,94 @@ export async function approveSubmission(
   let amountToAward = baseReward;
   let activeMultiplier = 1.0;
 
-  if (hunterId) {
-    const hunterProfile = await getUserProfile(hunterId);
-    const currentBp = hunterProfile?.bountyPoints || 100;
+  // 1. Fetch submission document if hunterId is missing or needed for verification
+  const subRef = doc(db, BOUNTIES_COL, bountyId, 'submissions', submissionId);
+  const subSnap = await getDoc(subRef);
+  let finalHunterId = hunterId;
+  let hunterUsername: string | undefined = undefined;
+
+  if (subSnap.exists()) {
+    const subData = subSnap.data() as Submission;
+    if (!finalHunterId) {
+      finalHunterId = subData.hunterId;
+    }
+    hunterUsername = subData.hunterUsername;
+  }
+
+  // 2. Resolve user reference in Firestore (by UID or fallback search by username)
+  let userRef: ReturnType<typeof doc> | null = null;
+  let userSnap: any = null;
+
+  if (finalHunterId) {
+    const r = doc(db, USERS_COL, finalHunterId);
+    const s = await getDoc(r);
+    if (s.exists()) {
+      userRef = r;
+      userSnap = s;
+    }
+  }
+
+  if (!userSnap && hunterUsername) {
+    const q = query(collection(db, USERS_COL));
+    const allUsersSnap = await getDocs(q);
+    const matchedDoc = allUsersSnap.docs.find(d => {
+      const u = d.data();
+      return u.username && u.username.trim().toLowerCase() === hunterUsername!.trim().toLowerCase();
+    });
+    if (matchedDoc) {
+      userRef = doc(db, USERS_COL, matchedDoc.id);
+      userSnap = matchedDoc;
+      finalHunterId = matchedDoc.id;
+    }
+  }
+
+  // 3. Calculate awarded BP using hunter's current BP
+  if (userSnap && userSnap.exists()) {
+    const userData = userSnap.data() as User;
+    const currentBp = userData.bountyPoints || 100;
     const calc = calculateAwardedBp(baseReward, currentBp);
     amountToAward = calc.awardedBp;
     activeMultiplier = calc.multiplier;
   }
 
-  await updateDoc(
-    doc(db, BOUNTIES_COL, bountyId, 'submissions', submissionId),
-    {
-      status: 'approved',
-      awardedBp: amountToAward,
-      bpMultiplier: activeMultiplier,
-    }
-  );
+  // 4. Update Submission doc
+  await updateDoc(subRef, {
+    status: 'approved',
+    awardedBp: amountToAward,
+    bpMultiplier: activeMultiplier,
+  });
+
+  // 5. Update parent Bounty doc
   await updateDoc(doc(db, BOUNTIES_COL, bountyId), {
     status: 'completed',
     updatedAtServer: serverTimestamp(),
   });
 
-  if (hunterId) {
-    // Award the actual scaled bounty reward amount to hunter + record timestamp for tie-breaker
+  // 6. Award BP & increment claimed count on user record in Firestore
+  if (userRef && userSnap && userSnap.exists()) {
     const nowIso = new Date().toISOString();
-    updateDoc(doc(db, USERS_COL, hunterId), {
+    await updateDoc(userRef, {
       bountyPoints: increment(amountToAward),
       bountiesClaimedCount: increment(1),
       lastBpUpdatedAt: nowIso,
       lastBpUpdatedAtServer: serverTimestamp(),
-    }).catch(() => {});
+    });
 
-    // Send success notification to hunter with multiplier details if scaled
     const multiplierNote = activeMultiplier !== 1.0 ? ` (${activeMultiplier}x multiplier)` : '';
     sendNotification({
-      userId: hunterId,
+      userId: finalHunterId || userSnap.id,
       type: 'proof_approved',
       title: '🎉 Quest Cleared! (Approved)',
       message: `Your proof for ${beatmapTitle || 'the bounty'} was approved! You earned +${amountToAward} BP!${multiplierNote}`,
       bountyId,
     }).catch(() => {});
   }
+
+  // 7. Clear leaderboard cache
+  cacheService.remove('bountyosu_leaderboard_cache');
+
+  // 8. Run sync/heal to ensure all user BP & claimed counts are 100% in sync
+  await syncAllUserBp().catch(() => {});
 }
 
 /**

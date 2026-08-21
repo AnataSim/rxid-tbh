@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { collection, query, orderBy, limit, getDocs, deleteDoc, setDoc, doc } from 'firebase/firestore';
+import React, { useEffect, useState } from 'react';
+import { collection, query, orderBy, limit, onSnapshot, deleteDoc, setDoc, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { User } from '../types/bounty';
 import { Trophy, Coins, Target, Star, Zap, Loader2, RotateCw } from 'lucide-react';
@@ -7,6 +7,7 @@ import { normalizeAvatarUrl } from '../services/authService';
 import { CowboyRankSquareFrame } from './CowboyRankBadge';
 import { fetchV4rxProfile } from '../services/osuApi';
 import { BugHunterIcon } from './BugHunterBadge';
+import { syncAllUserBp } from '../services/firestoreService';
 
 import { cacheService } from '../services/cacheService';
 
@@ -20,15 +21,18 @@ export const Leaderboard: React.FC = () => {
   });
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadLeaderboardData = useCallback(async () => {
-    try {
-      const q = query(
-        collection(db, 'users'),
-        orderBy('bountyPoints', 'desc'),
-        limit(50)
-      );
-      const snap = await getDocs(q);
-      const docs = snap.docs.map(d => ({ docId: d.id, data: d.data() as User }));
+  useEffect(() => {
+    // Run auto-sync in background on mount to heal any unsynced approved submission BP
+    syncAllUserBp().catch(() => {});
+
+    const q = query(
+      collection(db, 'users'),
+      orderBy('bountyPoints', 'desc'),
+      limit(50)
+    );
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      const docs = snapshot.docs.map(d => ({ docId: d.id, data: d.data() as User }));
 
       // Auto-clean duplicate docs in Firestore with identical username
       const seenNames = new Set<string>();
@@ -98,19 +102,18 @@ export const Leaderboard: React.FC = () => {
         }
       });
       Promise.all(syncPromises).catch(() => {});
-    } catch (err) {
-      console.error('Leaderboard fetch error:', err);
+    }, (err) => {
+      console.error('Leaderboard realtime fetch error:', err);
       setLoading(false);
-    }
-  }, []);
+    });
 
-  useEffect(() => {
-    loadLeaderboardData();
-  }, [loadLeaderboardData]);
+    return () => unsub();
+  }, []);
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadLeaderboardData();
+    cacheService.remove('bountyosu_leaderboard_cache');
+    await syncAllUserBp();
     setRefreshing(false);
   };
 
