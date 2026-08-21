@@ -91,6 +91,8 @@ export function LoginPage() {
         password:     regPassword,
         username:     profilePreview.username,
         osuId:        profilePreview.id,
+        countryCode:  profilePreview.countryCode,
+        countryFlag:  profilePreview.countryFlag,
         v4rxPp:       profilePreview.v4rxPp,
         v4rxRank:     profilePreview.v4rxRank,
         v4rxAccuracy: profilePreview.v4rxAccuracy,
@@ -327,6 +329,12 @@ export function LoginPage() {
                   />
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <img
+                        src={`https://flagcdn.com/w40/${(profilePreview.countryCode || 'id').toLowerCase()}.png`}
+                        alt={profilePreview.countryCode || 'ID'}
+                        style={{ width: 18, height: 12, borderRadius: 2, objectFit: 'cover', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
+                        onError={e => { e.currentTarget.style.display = 'none'; }}
+                      />
                       <span style={{ fontSize: 14, fontWeight: 700, color: 'var(--text-1)' }}>
                         {profilePreview.username}
                       </span>
@@ -453,6 +461,12 @@ export function LoginPage() {
                 />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <img
+                      src={`https://flagcdn.com/w40/${(profilePreview.countryCode || 'id').toLowerCase()}.png`}
+                      alt={profilePreview.countryCode || 'ID'}
+                      style={{ width: 18, height: 12, borderRadius: 2, objectFit: 'cover', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.4)' }}
+                      onError={e => { e.currentTarget.style.display = 'none'; }}
+                    />
                     <span style={{ fontSize: 15, fontWeight: 700, color: 'var(--text-1)' }}>
                       {profilePreview.username}
                     </span>

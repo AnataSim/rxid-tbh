@@ -8,7 +8,7 @@ import {
 import { doc, setDoc, getDoc, serverTimestamp, collection, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import type { User } from '../types/bounty';
-import { fetchV4rxProfile } from './osuApi';
+import { fetchV4rxProfile, countryCodeToEmoji } from './osuApi';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -113,7 +113,7 @@ export interface RegisterData {
 export async function registerUser(data: RegisterData): Promise<User> {
   const {
     email, password, username, osuId,
-    countryCode = 'ID', countryFlag = '🇮🇩',
+    countryCode = 'ID', countryFlag,
     v4rxPp = 0, v4rxRank = 81, v4rxAccuracy = 0,
   } = data;
 
@@ -128,6 +128,7 @@ export async function registerUser(data: RegisterData): Promise<User> {
   const avatarUrl = buildAvatarUrl(osuId, username);
   const title     = assignTitle(v4rxPp);
   const nowIso    = new Date().toISOString();
+  const flag      = countryFlag || countryCodeToEmoji(countryCode);
 
   const isGiverAccount = ['sim', 'darkww', '63', '85'].includes(username.trim().toLowerCase()) || (osuId ? ['63', '85'].includes(osuId.trim()) : false);
 
@@ -139,7 +140,7 @@ export async function registerUser(data: RegisterData): Promise<User> {
     username,
     avatarUrl,
     countryCode,
-    countryFlag,
+    countryFlag:         flag,
     v4rxRank,
     v4rxPp,
     v4rxAccuracy,
