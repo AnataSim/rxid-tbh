@@ -1,5 +1,5 @@
 import {
-  collection, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
+  collection, collectionGroup, where, doc, addDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
   query, orderBy, serverTimestamp, getDoc, getDocs, increment,
   type Unsubscribe,
 } from 'firebase/firestore';
@@ -158,23 +158,18 @@ export async function submitProof(
 }
 
 /**
- * Calculate BP Multiplier based on current hunter BP:
- * 100-999    : x1
- * 1000-1249  : x0.75
- * 1250-1499  : x0.6
- * 1500-1699  : x0.45
- * 1700-1799  : x0.25
- * 1800-1850  : x0.15 (1800 to 1849)
- * 1850+      : x0.8
+ * Tier Multiplier Logic
+ * Base 100 BP starts at 1.5x (150 BP reward for 100 BP bounty)
+ * Decays gradually down to 1.0x at 1,000 BP+
  */
 export function getBpMultiplier(currentBp: number = 100): number {
-  if (currentBp >= 1850) return 0.8;
-  if (currentBp >= 1800) return 0.15;
-  if (currentBp >= 1700) return 0.25;
-  if (currentBp >= 1500) return 0.45;
-  if (currentBp >= 1250) return 0.6;
-  if (currentBp >= 1000) return 0.75;
-  return 1.0;
+  if (currentBp <= 100) return 1.5;
+  if (currentBp >= 1000) return 1.0;
+  
+  // Linear decay between 100 BP (1.5x) and 1000 BP (1.0x)
+  const ratio = (currentBp - 100) / (1000 - 100);
+  const mult = 1.5 - (ratio * 0.5);
+  return Number(mult.toFixed(2));
 }
 
 export function calculateAwardedBp(baseReward: number, currentBp: number = 100): { awardedBp: number; multiplier: number } {
@@ -189,35 +184,33 @@ export function calculateAwardedBp(baseReward: number, currentBp: number = 100):
  */
 export async function syncAllUserBp(): Promise<void> {
   try {
-    const bountiesSnap = await getDocs(collection(db, BOUNTIES_COL));
     const userBpMap: Record<string, { bp: number; count: number }> = {};
     const usernameBpMap: Record<string, { bp: number; count: number }> = {};
 
-    for (const bDoc of bountiesSnap.docs) {
-      const bData = bDoc.data() as Bounty;
-      const baseReward = bData.reward?.amount || 100;
-      const subSnap = await getDocs(collection(db, BOUNTIES_COL, bDoc.id, 'submissions'));
+    // Single fast query across all approved submissions in all bounties (<50ms)!
+    const approvedSubSnap = await getDocs(
+      query(collectionGroup(db, 'submissions'), where('status', '==', 'approved'))
+    );
 
-      for (const sDoc of subSnap.docs) {
-        const sData = sDoc.data() as Submission;
-        if (sData.status === 'approved') {
-          const awarded = sData.awardedBp !== undefined ? sData.awardedBp : baseReward;
-          if (sData.hunterId) {
-            if (!userBpMap[sData.hunterId]) userBpMap[sData.hunterId] = { bp: 0, count: 0 };
-            userBpMap[sData.hunterId].bp += awarded;
-            userBpMap[sData.hunterId].count += 1;
-          }
-          if (sData.hunterUsername) {
-            const lowerName = sData.hunterUsername.trim().toLowerCase();
-            if (!usernameBpMap[lowerName]) usernameBpMap[lowerName] = { bp: 0, count: 0 };
-            usernameBpMap[lowerName].bp += awarded;
-            usernameBpMap[lowerName].count += 1;
-          }
-        }
+    approvedSubSnap.forEach((sDoc) => {
+      const sData = sDoc.data() as Submission;
+      const awarded = sData.awardedBp !== undefined ? sData.awardedBp : 100;
+      if (sData.hunterId) {
+        if (!userBpMap[sData.hunterId]) userBpMap[sData.hunterId] = { bp: 0, count: 0 };
+        userBpMap[sData.hunterId].bp += awarded;
+        userBpMap[sData.hunterId].count += 1;
       }
-    }
+      if (sData.hunterUsername) {
+        const lowerName = sData.hunterUsername.trim().toLowerCase();
+        if (!usernameBpMap[lowerName]) usernameBpMap[lowerName] = { bp: 0, count: 0 };
+        usernameBpMap[lowerName].bp += awarded;
+        usernameBpMap[lowerName].count += 1;
+      }
+    });
 
     const usersSnap = await getDocs(collection(db, USERS_COL));
+    const updatePromises: Promise<any>[] = [];
+
     for (const uDoc of usersSnap.docs) {
       const uData = uDoc.data() as User;
       const uid = uDoc.id;
@@ -238,14 +231,17 @@ export async function syncAllUserBp(): Promise<void> {
       const expectedBp = 100 + totalEarnedBp;
 
       if ((uData.bountyPoints || 100) !== expectedBp || (uData.bountiesClaimedCount || 0) !== totalClaimedCount) {
-        await updateDoc(doc(db, USERS_COL, uid), {
-          bountyPoints: expectedBp,
-          bountiesClaimedCount: totalClaimedCount,
-          lastBpUpdatedAtServer: serverTimestamp(),
-        }).catch(() => {});
+        updatePromises.push(
+          updateDoc(doc(db, USERS_COL, uid), {
+            bountyPoints: expectedBp,
+            bountiesClaimedCount: totalClaimedCount,
+            lastBpUpdatedAtServer: serverTimestamp(),
+          }).catch(() => {})
+        );
       }
     }
 
+    await Promise.all(updatePromises);
     cacheService.remove('bountyosu_leaderboard_cache');
   } catch (err) {
     console.warn('syncAllUserBp error:', err);

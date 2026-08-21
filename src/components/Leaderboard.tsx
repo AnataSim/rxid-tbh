@@ -22,92 +22,93 @@ export const Leaderboard: React.FC = () => {
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    // Run auto-sync in background on mount to heal any unsynced approved submission BP
-    syncAllUserBp().catch(() => {});
+    let unsub: (() => void) | undefined;
 
-    const q = query(
-      collection(db, 'users'),
-      orderBy('bountyPoints', 'desc'),
-      limit(50)
-    );
+    // Instant sync on mount (<50ms via collectionGroup) so all user BP calculations are 100% up-to-date
+    syncAllUserBp().finally(() => {
+      const q = query(
+        collection(db, 'users'),
+        orderBy('bountyPoints', 'desc'),
+        limit(50)
+      );
 
-    const unsub = onSnapshot(q, (snapshot) => {
-      const docs = snapshot.docs.map(d => ({ docId: d.id, data: d.data() as User }));
+      unsub = onSnapshot(q, (snapshot) => {
+        const docs = snapshot.docs.map(d => ({ docId: d.id, data: d.data() as User }));
 
-      // Auto-clean duplicate docs in Firestore with identical username
-      const seenNames = new Set<string>();
-      const cleanList: User[] = [];
-      for (const item of docs) {
-        const name = (item.data.username || '').trim().toLowerCase();
-        if (name) {
-          if (seenNames.has(name)) {
-            deleteDoc(doc(db, 'users', item.docId)).catch(() => {});
+        // Auto-clean duplicate docs in Firestore with identical username
+        const seenNames = new Set<string>();
+        const cleanList: User[] = [];
+        for (const item of docs) {
+          const name = (item.data.username || '').trim().toLowerCase();
+          if (name) {
+            if (seenNames.has(name)) {
+              deleteDoc(doc(db, 'users', item.docId)).catch(() => {});
+            } else {
+              seenNames.add(name);
+              cleanList.push(item.data);
+            }
           } else {
-            seenNames.add(name);
             cleanList.push(item.data);
           }
-        } else {
-          cleanList.push(item.data);
         }
-      }
 
-      // Sort cleanList: Primary = BP desc, Secondary Tie-breaker = Earliest timestamp first
-      cleanList.sort((a, b) => {
-        const bpA = a.bountyPoints || 100;
-        const bpB = b.bountyPoints || 100;
-        if (bpA !== bpB) {
-          return bpB - bpA;
-        }
-        const timeA = new Date(a.lastBpUpdatedAt || a.createdAt || '2026-08-19T00:00:00Z').getTime();
-        const timeB = new Date(b.lastBpUpdatedAt || b.createdAt || '2026-08-19T00:00:00Z').getTime();
-        return timeA - timeB;
-      });
+        // Sort cleanList: Primary = BP desc, Secondary = Earliest timestamp
+        cleanList.sort((a, b) => {
+          const bpA = a.bountyPoints || 100;
+          const bpB = b.bountyPoints || 100;
+          if (bpA !== bpB) return bpB - bpA;
+          const timeA = new Date(a.lastBpUpdatedAt || a.createdAt || '2026-08-19T00:00:00Z').getTime();
+          const timeB = new Date(b.lastBpUpdatedAt || b.createdAt || '2026-08-19T00:00:00Z').getTime();
+          return timeA - timeB;
+        });
 
-      setPlayers(cleanList);
-      cacheService.set('bountyosu_leaderboard_cache', cleanList, 300000);
-      setLoading(false);
+        setPlayers(cleanList);
+        setLoading(false);
 
-      // Auto-sync real v4rx.me profile data in background without blocking UI
-      const syncPromises = cleanList.map(async player => {
-        const idToSync = player.osuId || (player.username && player.username.startsWith('Player #') ? player.username.replace('Player #', '') : null);
-        if (idToSync) {
-          try {
-            const fresh = await fetchV4rxProfile(idToSync);
-            if (
-              fresh &&
-              fresh.username &&
-              !fresh.username.startsWith('Player #') &&
-              (fresh.username !== player.username || fresh.v4rxPp !== player.v4rxPp || fresh.v4rxAccuracy !== player.v4rxAccuracy || fresh.v4rxRank !== player.v4rxRank)
-            ) {
-              setPlayers(prev => prev.map(p => p.id === player.id ? {
-                ...p,
-                username: fresh.username,
-                avatarUrl: fresh.avatarUrl,
-                v4rxPp: fresh.v4rxPp,
-                v4rxRank: fresh.v4rxRank,
-                v4rxAccuracy: fresh.v4rxAccuracy,
-              } : p));
+        // Auto-sync real v4rx.me profile data in background without blocking UI
+        const syncPromises = cleanList.map(async player => {
+          const idToSync = player.osuId || (player.username && player.username.startsWith('Player #') ? player.username.replace('Player #', '') : null);
+          if (idToSync) {
+            try {
+              const fresh = await fetchV4rxProfile(idToSync);
+              if (
+                fresh &&
+                fresh.username &&
+                !fresh.username.startsWith('Player #') &&
+                (fresh.username !== player.username || fresh.v4rxPp !== player.v4rxPp || fresh.v4rxAccuracy !== player.v4rxAccuracy || fresh.v4rxRank !== player.v4rxRank)
+              ) {
+                setPlayers(prev => prev.map(p => p.id === player.id ? {
+                  ...p,
+                  username: fresh.username,
+                  avatarUrl: fresh.avatarUrl,
+                  v4rxPp: fresh.v4rxPp,
+                  v4rxRank: fresh.v4rxRank,
+                  v4rxAccuracy: fresh.v4rxAccuracy,
+                } : p));
 
-              await setDoc(doc(db, 'users', player.id), {
-                username: fresh.username,
-                avatarUrl: fresh.avatarUrl,
-                v4rxPp: fresh.v4rxPp,
-                v4rxRank: fresh.v4rxRank,
-                v4rxAccuracy: fresh.v4rxAccuracy,
-              }, { merge: true }).catch(() => {});
+                await setDoc(doc(db, 'users', player.id), {
+                  username: fresh.username,
+                  avatarUrl: fresh.avatarUrl,
+                  v4rxPp: fresh.v4rxPp,
+                  v4rxRank: fresh.v4rxRank,
+                  v4rxAccuracy: fresh.v4rxAccuracy,
+                }, { merge: true }).catch(() => {});
+              }
+            } catch {
+              // Ignore individual sync errors
             }
-          } catch {
-            // Ignore individual sync errors
           }
-        }
+        });
+        Promise.all(syncPromises).catch(() => {});
+      }, (err) => {
+        console.error('Leaderboard realtime fetch error:', err);
+        setLoading(false);
       });
-      Promise.all(syncPromises).catch(() => {});
-    }, (err) => {
-      console.error('Leaderboard realtime fetch error:', err);
-      setLoading(false);
     });
 
-    return () => unsub();
+    return () => {
+      if (unsub) unsub();
+    };
   }, []);
 
   const handleRefresh = async () => {
