@@ -36,8 +36,23 @@ export const EditBountyModal: React.FC<EditBountyModalProps> = ({
   const [deadlineDays, setDeadlineDays] = useState<string>(() => {
     if (!bounty.deadlineAt) return '';
     const diffMs = new Date(bounty.deadlineAt).getTime() - Date.now();
-    if (diffMs <= 0) return '0';
-    return String(Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24))));
+    if (diffMs <= 0) return '';
+    const d = Math.floor(diffMs / 86400000);
+    return d > 0 ? String(d) : '';
+  });
+  const [deadlineHours, setDeadlineHours] = useState<string>(() => {
+    if (!bounty.deadlineAt) return '';
+    const diffMs = new Date(bounty.deadlineAt).getTime() - Date.now();
+    if (diffMs <= 0) return '';
+    const h = Math.floor((diffMs % 86400000) / 3600000);
+    return h > 0 ? String(h) : '';
+  });
+  const [deadlineMinutes, setDeadlineMinutes] = useState<string>(() => {
+    if (!bounty.deadlineAt) return '';
+    const diffMs = new Date(bounty.deadlineAt).getTime() - Date.now();
+    if (diffMs <= 0) return '';
+    const m = Math.floor((diffMs % 3600000) / 60000);
+    return m > 0 ? String(m) : '';
   });
 
   useEffect(() => {
@@ -104,9 +119,10 @@ export const EditBountyModal: React.FC<EditBountyModalProps> = ({
       finalRewardAmount = Number(rewardAmount) || 0;
     }
 
-    const newDeadlineAt = (deadlineDays && Number(deadlineDays) > 0)
-      ? new Date(Date.now() + Number(deadlineDays) * 86400000).toISOString()
-      : undefined;
+    const totalMs = (Number(deadlineDays || 0) * 86400000) +
+                    (Number(deadlineHours || 0) * 3600000) +
+                    (Number(deadlineMinutes || 0) * 60000);
+    const newDeadlineAt = totalMs > 0 ? new Date(Date.now() + totalMs).toISOString() : undefined;
 
     await onSaveBounty(bounty.id, {
       reward: { ...bounty.reward, amount: finalRewardAmount },
@@ -411,23 +427,54 @@ export const EditBountyModal: React.FC<EditBountyModalProps> = ({
               />
             </div>
 
-            {/* Bounty Deadline / Timer (Days) */}
+            {/* Bounty Deadline / Timer (Days, Hours, Minutes) */}
             <div className="form-group">
               <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#f87171' }}>
-                <Clock size={12} /> Bounty Deadline / Timer (Days)
+                <Clock size={12} /> Bounty Deadline / Timer (Duration)
               </label>
-              <input
-                type="number"
-                min="1"
-                max="365"
-                value={deadlineDays}
-                onChange={e => setDeadlineDays(e.target.value)}
-                placeholder="e.g. 3 (Set deadline in days, leave blank for no limit)"
-                className="form-input"
-                style={{ fontSize: 12 }}
-              />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Days (d)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="365"
+                    value={deadlineDays}
+                    onChange={e => setDeadlineDays(e.target.value)}
+                    placeholder="e.g. 3"
+                    className="form-input"
+                    style={{ fontSize: 12 }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Hours (h)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="23"
+                    value={deadlineHours}
+                    onChange={e => setDeadlineHours(e.target.value)}
+                    placeholder="e.g. 12"
+                    className="form-input"
+                    style={{ fontSize: 12 }}
+                  />
+                </div>
+                <div>
+                  <label style={{ fontSize: 10, color: 'var(--text-3)', marginBottom: 4, display: 'block' }}>Minutes (m)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    max="59"
+                    value={deadlineMinutes}
+                    onChange={e => setDeadlineMinutes(e.target.value)}
+                    placeholder="e.g. 53"
+                    className="form-input"
+                    style={{ fontSize: 12 }}
+                  />
+                </div>
+              </div>
               <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>
-                Setting a deadline will close quest submission automatically when time expires. Status will show as <strong style={{ color: '#f87171' }}>LIMITED</strong>.
+                Set custom duration (e.g. 3 Days, 12 Hours, 53 Mins). When deadline expires, status becomes <strong style={{ color: '#f87171' }}>LIMITED</strong>.
               </div>
             </div>
 
