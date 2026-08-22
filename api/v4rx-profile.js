@@ -129,7 +129,9 @@ export default async function handler(req, res) {
       const pText = await pRes.text();
       const h1Match = pText.match(/<h1[^>]*class="[^"]*truncate[^"]*"[^>]*>\s*(.*?)\s*<\/h1>/i) ||
                       pText.match(/<title>(.*?)'s Profile<\/title>/i);
-      const accMatch = pText.match(/(\d{2}\.\d{1,2})\s*%/i) || pText.match(/Accuracy:\s*([\d.]+)/i);
+      const accMatch = pText.match(/Accuracy<\/div>\s*<div[^>]*>\s*([\d.]+)\s*%/i) ||
+                       pText.match(/(\d{2}\.\d{1,2})\s*%/i) ||
+                       pText.match(/Accuracy:\s*([\d.]+)/i);
       const cMatch = pText.match(/flagsapi\.com\/([A-Z]{2})/i) ||
                      pText.match(/alt=["']([A-Z]{2})["'][^>]*class=["'][^"']*h-5/i) ||
                      pText.match(/flag-icon-([a-z]{2})/i) ||

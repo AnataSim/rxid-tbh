@@ -339,7 +339,9 @@ async function fetchV4rxProfileInternal(clean: string): Promise<V4rxFetchedProfi
           const h1Match      = text.match(/<h1[^>]*class="[^"]*truncate[^"]*"[^>]*>\s*(.*?)\s*<\/h1>/i);
           const titleMatch   = text.match(/<title>(.*?)'s Profile<\/title>/i) || text.match(/<title>(.*?)<\/title>/i);
           const ppMatch      = text.match(/(\d+)pp/i);
-          const accMatch     = text.match(/(\d{2}\.\d{1,2})\s*%/i) || text.match(/Accuracy:\s*([\d.]+)/i);
+          const accMatch     = text.match(/Accuracy<\/div>\s*<div[^>]*>\s*([\d.]+)\s*%/i) ||
+                               text.match(/(\d{2}\.\d{1,2})\s*%/i) ||
+                               text.match(/Accuracy:\s*([\d.]+)/i);
           const rankMatch    = text.match(/#(\d+)/i) || text.match(/fa-hashtag[^>]*><\/i>\s*(\d+)/i);
           const countryMatch = text.match(/flagsapi\.com\/([A-Z]{2})/i) ||
                                text.match(/alt=["']([A-Z]{2})["'][^>]*class=["'][^"']*h-5/i) ||
@@ -410,15 +412,34 @@ async function fetchV4rxProfileInternal(clean: string): Promise<V4rxFetchedProfi
                 const foundPp   = ppMatch ? parseInt(ppMatch[1], 10) : 15000;
 
                 if (foundId === clean || foundName.toLowerCase() === cleanLower) {
+                  let foundAcc = 95.0;
+                  let foundCountryCode = 'ID';
+
+                  // Secondary proxy fetch to get exact profile accuracy & country flag for this player ID
+                  try {
+                    const profProxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent('https://v4rx.me/user/profile.php?id=' + foundId)}`;
+                    const pRes = await fetchWithTimeout(profProxyUrl, { timeoutMs: 2500 });
+                    if (pRes.ok) {
+                      const pRaw = await pRes.json().catch(() => null);
+                      const pText = pRaw?.contents || (await pRes.text().catch(() => ''));
+                      const aMatch = pText.match(/Accuracy<\/div>\s*<div[^>]*>\s*([\d.]+)\s*%/i) || pText.match(/(\d{2}\.\d{1,2})\s*%/i);
+                      const cMatch = pText.match(/flagsapi\.com\/([A-Z]{2})/i) || pText.match(/alt=["']([A-Z]{2})["']/i);
+                      if (aMatch) foundAcc = parseFloat(aMatch[1]);
+                      if (cMatch) foundCountryCode = cMatch[1].toUpperCase();
+                    }
+                  } catch {
+                    // Ignore secondary proxy error
+                  }
+
                   return {
                     id:          foundId,
                     username:    foundName,
                     avatarUrl:   `https://v4rx.me/user/avatar/${foundId}.png`,
-                    countryCode: 'ID',
-                    countryFlag: '🇮🇩',
+                    countryCode: foundCountryCode,
+                    countryFlag: countryCodeToEmoji(foundCountryCode),
                     v4rxRank:    foundRank,
                     v4rxPp:      foundPp,
-                    v4rxAccuracy: 95.0,
+                    v4rxAccuracy: foundAcc,
                   };
                 }
               }

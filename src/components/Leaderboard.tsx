@@ -88,6 +88,7 @@ export const Leaderboard: React.FC = () => {
               setPlayers(prev => {
                 const updated = prev.map(p => p.id === player.id ? {
                   ...p,
+                  osuId: fresh.id || p.osuId,
                   username: fresh.username,
                   avatarUrl: fresh.avatarUrl,
                   countryCode: fresh.countryCode,
@@ -101,6 +102,7 @@ export const Leaderboard: React.FC = () => {
               });
 
               await setDoc(doc(db, 'users', player.id), {
+                osuId: fresh.id,
                 username: fresh.username,
                 avatarUrl: fresh.avatarUrl,
                 countryCode: fresh.countryCode,
