@@ -174,7 +174,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               {/* Notifications Dropdown Panel */}
               {notifOpen && (
                 <div
-                  className="dropdown"
+                  className="dropdown dropdown-notifications"
                   style={{ width: 320, right: 0, padding: 0, overflow: 'hidden' }}
                 >
                   <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

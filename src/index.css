@@ -1634,6 +1634,19 @@ select.form-input { cursor: pointer; }
 
   .titles-grid { grid-template-columns: 1fr; }
 
+  /* Center Notification Dropdown on Mobile so it never overlaps or gets cut off */
+  .dropdown-notifications {
+    position: fixed !important;
+    top: 64px !important;
+    left: 50% !important;
+    right: auto !important;
+    transform: translateX(-50%) !important;
+    width: calc(100vw - 32px) !important;
+    max-width: 360px !important;
+    z-index: 9999 !important;
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.95), 0 0 20px rgba(255, 77, 141, 0.3) !important;
+  }
+
   /* Mobile Bottom Sheet Modals */
   .modal-overlay {
     align-items: flex-end !important;
