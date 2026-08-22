@@ -133,7 +133,7 @@ export const EditBountyModal: React.FC<EditBountyModalProps> = ({
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-            {/* Beatmap Header Card */}
+            {/* Beatmap Header Card (Locked) */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 12,
               padding: '12px 14px', borderRadius: 'var(--radius)',
@@ -147,6 +147,17 @@ export const EditBountyModal: React.FC<EditBountyModalProps> = ({
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 700 }}>{bounty.beatmap.title}</div>
                 <div style={{ fontSize: 11, color: 'var(--text-3)' }}>Mapped by {bounty.beatmap.mapper}</div>
+              </div>
+              <div
+                style={{
+                  display: 'flex', alignItems: 'center', gap: 4,
+                  fontSize: 11, fontWeight: 700, color: '#f87171',
+                  background: 'rgba(239, 68, 68, 0.1)', padding: '4px 8px', borderRadius: 6,
+                  border: '1px solid rgba(239, 68, 68, 0.3)',
+                }}
+                title="Beatmap is locked & cannot be modified after creation for security reasons"
+              >
+                🔒 Beatmap Locked
               </div>
             </div>
 

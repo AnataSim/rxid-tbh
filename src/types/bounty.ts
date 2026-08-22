@@ -21,6 +21,7 @@ export interface User {
   createdAt: string;   // e.g. "2026-08-18T00:00:00Z"
   lastLoginAt?: string;// e.g. "2026-08-20T08:18:00Z"
   lastBpUpdatedAt?: string; // Timestamp when BP was last earned/updated
+  lastFfaBountyPostedAt?: string; // Timestamp when last FFA bounty was created (for 24h newcomer rate-limiting)
 }
 
 export interface BeatmapMetadata {
@@ -63,6 +64,7 @@ export interface Submission {
 
 export interface Bounty {
   id: string;
+  isFfa?: boolean;             // True if this is a Free-For-All community bounty
   beatmap: BeatmapMetadata;
   giver: {
     id: string;
@@ -71,7 +73,7 @@ export interface Bounty {
   };
   reward: {
     amount: number;
-    currency: 'BP' | 'USD' | 'Supporter';
+    currency: 'BP' | 'USD' | 'Supporter' | 'FFA';
   };
   isDualReward?: boolean;
   rewardTier1?: number;

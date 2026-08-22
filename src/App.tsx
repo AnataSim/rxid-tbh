@@ -67,15 +67,32 @@ export function AppContent() {
     return !cached || cached.length === 0;
   });
   const [activeTab, setActiveTab]     = useState<'bounties' | 'leaderboard' | 'titles' | 'rules'>('bounties');
+  const [bountySection, setBountySection] = useState<'official' | 'ffa'>('official');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [currentPage, setCurrentPage]   = useState<number>(1);
   const [currentUserRank, setCurrentUserRank] = useState<number | undefined>(undefined);
   const [toasts, setToasts]           = useState<ToastMessage[]>([]);
 
+  const getFfaCooldownInfo = (user: any) => {
+    if (!user) return { onCooldown: false, hours: 0, mins: 0 };
+    const isNewcomer = !user.title || user.title.includes('Newcomer') || (user.bountyPoints || 0) <= 100;
+    if (!isNewcomer || !user.lastFfaBountyPostedAt) return { onCooldown: false, hours: 0, mins: 0 };
+
+    const lastPostTime = new Date(user.lastFfaBountyPostedAt).getTime();
+    const diffMs = Date.now() - lastPostTime;
+    const cooldownMs = 24 * 60 * 60 * 1000;
+    if (diffMs >= cooldownMs) return { onCooldown: false, hours: 0, mins: 0 };
+
+    const remainingMs = cooldownMs - diffMs;
+    const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+    const mins = Math.ceil((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+    return { onCooldown: true, hours, mins };
+  };
+
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, statusFilter]);
+  }, [searchQuery, statusFilter, bountySection]);
 
   const [selectedBounty, setSelectedBounty]   = useState<Bounty | null>(null);
   const [isCreateOpen, setIsCreateOpen]        = useState(false);
@@ -137,10 +154,14 @@ export function AppContent() {
   // ── Handlers ──────────────────────────────────────────────────────────────
 
   const handleCreateBounty = async (bountyData: Omit<Bounty, 'id' | 'submissions'>) => {
-    const id = await createBounty(bountyData);
-    const newBounty: Bounty = { ...bountyData, id, submissions: [] };
-    setSelectedBounty(newBounty);
-    addToast('Bounty Created Successfully! 📜', 'success');
+    try {
+      const id = await createBounty(bountyData, currentUser);
+      const newBounty: Bounty = { ...bountyData, id, submissions: [] };
+      setSelectedBounty(newBounty);
+      addToast(bountyData.isFfa ? '🔥 Free-For-All Quest Created! 🚀' : 'Bounty Created Successfully! 📜', 'success');
+    } catch (err: any) {
+      addToast(err.message || 'Failed to create bounty.', 'error');
+    }
   };
 
   const handleSubmitProof = async (sub: Omit<Submission, 'id'>, giverId?: string, beatmapTitle?: string) => {
@@ -208,6 +229,9 @@ export function AppContent() {
   };
 
   const filtered = bounties.filter(b => {
+    if (bountySection === 'official' && b.isFfa) return false;
+    if (bountySection === 'ffa' && !b.isFfa) return false;
+
     const q = searchQuery.toLowerCase();
     const match =
       b.beatmap.title.toLowerCase().includes(q) ||
@@ -440,6 +464,86 @@ export function AppContent() {
               </div>
             </div>
 
+            {/* ── Section Selector Bar (Official vs Free-For-All) ── */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              flexWrap: 'wrap', gap: 12, marginBottom: 16,
+              padding: '12px 16px', borderRadius: 'var(--radius)',
+              background: 'rgba(255, 255, 255, 0.03)',
+              border: '1px solid var(--border)',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <button
+                  onClick={() => { setBountySection('official'); setCurrentPage(1); }}
+                  className={`btn ${bountySection === 'official' ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{
+                    borderRadius: 99, padding: '7px 18px', fontSize: 13, fontWeight: 700,
+                    boxShadow: bountySection === 'official' ? '0 0 12px rgba(255, 77, 141, 0.3)' : 'none',
+                  }}
+                >
+                  🏆 Official Quests ({bounties.filter(b => !b.isFfa).length})
+                </button>
+                <button
+                  onClick={() => { setBountySection('ffa'); setCurrentPage(1); }}
+                  className={`btn ${bountySection === 'ffa' ? 'btn-primary' : 'btn-ghost'}`}
+                  style={{
+                    borderRadius: 99,
+                    padding: '7px 18px',
+                    fontSize: 13,
+                    fontWeight: 700,
+                    background: bountySection === 'ffa' ? 'linear-gradient(135deg, #ff4d8d, #e11d48)' : undefined,
+                    borderColor: bountySection === 'ffa' ? '#ff4d8d' : undefined,
+                    color: '#ffffff',
+                    boxShadow: bountySection === 'ffa' ? '0 0 16px rgba(255, 77, 141, 0.5)' : undefined,
+                  }}
+                >
+                  🔥 Free-For-All ({bounties.filter(b => Boolean(b.isFfa)).length})
+                </button>
+              </div>
+
+              <div>
+                {bountySection === 'official' && isGiver && (
+                  <button onClick={() => setIsCreateOpen(true)} className="btn btn-primary btn-sm">
+                    <Plus size={14} /> Post Official Bounty
+                  </button>
+                )}
+                {bountySection === 'ffa' && (
+                  (() => {
+                    const cd = getFfaCooldownInfo(currentUser);
+                    return (
+                      <button
+                        onClick={() => {
+                          if (cd.onCooldown) {
+                            addToast(`⏳ Cooldown Active: Newcomers can post 1 FFA quest per 24 hours. Available in ${cd.hours}h ${cd.mins}m.`, 'error');
+                            return;
+                          }
+                          setIsCreateOpen(true);
+                        }}
+                        className="btn"
+                        style={{
+                          background: cd.onCooldown ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #ff4d8d 0%, #f43f5e 100%)',
+                          border: `1px solid ${cd.onCooldown ? 'var(--border)' : '#ff4d8d'}`,
+                          color: cd.onCooldown ? 'var(--text-3)' : '#ffffff',
+                          fontWeight: 700,
+                          fontSize: 12,
+                          borderRadius: 99,
+                          padding: '6px 16px',
+                          cursor: cd.onCooldown ? 'not-allowed' : 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: 6,
+                          boxShadow: cd.onCooldown ? 'none' : '0 0 14px rgba(255, 77, 141, 0.4)',
+                        }}
+                      >
+                        <Plus size={14} />
+                        {cd.onCooldown ? `⏳ Cooldown (${cd.hours}h ${cd.mins}m)` : 'Post FFA Quest (Anyone)'}
+                      </button>
+                    );
+                  })()
+                )}
+              </div>
+            </div>
+
             {/* ── Filter Bar ── */}
             <div className="filter-bar">
               <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -654,11 +758,12 @@ export function AppContent() {
           onSaveBounty={handleSaveBounty}
         />
       )}
-      {isCreateOpen && isGiver && (
+      {isCreateOpen && (bountySection === 'ffa' || isGiver) && (
         <CreateBountyModal
           currentUser={currentUser}
           onClose={() => setIsCreateOpen(false)}
           onCreateBounty={handleCreateBounty}
+          isFfaMode={bountySection === 'ffa'}
         />
       )}
       {submitProofBounty && (

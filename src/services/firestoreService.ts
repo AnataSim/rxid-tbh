@@ -85,19 +85,47 @@ export function subscribeToBounties(
  * Create a new bounty in Firestore + send broadcast notification
  */
 export async function createBounty(
-  bountyData: Omit<Bounty, 'id' | 'submissions'>
+  bountyData: Omit<Bounty, 'id' | 'submissions'>,
+  userProfile?: User | null
 ): Promise<string> {
+  // Anti-Abuse 24-Hour Cooldown Validation for Newcomers on FFA Bounties
+  if (bountyData.isFfa && userProfile) {
+    const isNewcomer = !userProfile.title || userProfile.title.includes('Newcomer') || (userProfile.bountyPoints || 0) <= 100;
+    if (isNewcomer && userProfile.lastFfaBountyPostedAt) {
+      const lastPostTime = new Date(userProfile.lastFfaBountyPostedAt).getTime();
+      const now = Date.now();
+      const diffMs = now - lastPostTime;
+      const cooldownMs = 24 * 60 * 60 * 1000;
+
+      if (diffMs < cooldownMs) {
+        const remainingMs = cooldownMs - diffMs;
+        const hours = Math.floor(remainingMs / (1000 * 60 * 60));
+        const mins = Math.ceil((remainingMs % (1000 * 60 * 60)) / (1000 * 60));
+        throw new Error(
+          `⏳ Cooldown Active: Newcomers can only post 1 Free-For-All (FFA) bounty per 24 hours. Your next post is available in ${hours}h ${mins}m.`
+        );
+      }
+    }
+  }
+
   const ref = await addDoc(collection(db, BOUNTIES_COL), {
     ...bountyData,
     createdAtServer: serverTimestamp(),
   });
 
+  // Track last FFA post timestamp on User doc for rate limiting
+  if (bountyData.isFfa && bountyData.giver?.id) {
+    const userRef = doc(db, USERS_COL, bountyData.giver.id);
+    setDoc(userRef, { lastFfaBountyPostedAt: new Date().toISOString() }, { merge: true }).catch(() => {});
+  }
+
   // Notify all hunters of new quest
+  const currencyLabel = bountyData.isFfa ? 'FFA' : `${bountyData.reward.amount} ${bountyData.reward.currency}`;
   sendNotification({
     userId: 'all',
     type: 'new_quest',
-    title: '📜 New Quest Posted!',
-    message: `${bountyData.giver.username} posted a new bounty for ${bountyData.beatmap.title} (${bountyData.reward.amount} ${bountyData.reward.currency})`,
+    title: bountyData.isFfa ? '🔥 New FFA Quest Posted!' : '📜 New Quest Posted!',
+    message: `${bountyData.giver.username} posted a new ${bountyData.isFfa ? 'Free-For-All' : 'bounty'} quest for ${bountyData.beatmap.title} (${currencyLabel})`,
     bountyId: ref.id,
   }).catch(() => {});
 
@@ -112,8 +140,12 @@ export async function updateBounty(
   updates: Partial<Bounty>
 ): Promise<void> {
   const bountyRef = doc(db, BOUNTIES_COL, bountyId);
+
+  // Security: Lock beatmap metadata from being edited
+  const { beatmap, ...safeUpdates } = updates as any;
+
   await updateDoc(bountyRef, {
-    ...updates,
+    ...safeUpdates,
     updatedAtServer: serverTimestamp(),
   });
 }

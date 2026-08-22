@@ -9,10 +9,11 @@ interface CreateBountyModalProps {
   currentUser: User;
   onClose: () => void;
   onCreateBounty: (bounty: Omit<Bounty, 'id' | 'submissions'>) => void;
+  isFfaMode?: boolean;
 }
 
 export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
-  currentUser, onClose, onCreateBounty,
+  currentUser, onClose, onCreateBounty, isFfaMode = false,
 }) => {
   const [mapUrl, setMapUrl] = useState('');
   
@@ -97,17 +98,18 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
     }
 
     onCreateBounty({
+      isFfa: isFfaMode,
       beatmap: metadata,
       giver: { id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl },
-      reward: { amount: finalRewardAmount, currency: 'BP' },
-      isDualReward: isDualMode,
-      rewardTier1: t1Amount,
-      rewardTier2: t2Amount,
-      instructionTier1: t1Instr,
-      instructionTier2: t2Instr,
+      reward: { amount: isFfaMode ? 0 : finalRewardAmount, currency: isFfaMode ? 'FFA' : 'BP' },
+      isDualReward: isFfaMode ? false : isDualMode,
+      rewardTier1: isFfaMode ? undefined : t1Amount,
+      rewardTier2: isFfaMode ? undefined : t2Amount,
+      instructionTier1: isFfaMode ? undefined : t1Instr,
+      instructionTier2: isFfaMode ? undefined : t2Instr,
       instructions: finalInstructions,
       rules,
-      tags: [metadata.status.toUpperCase(), ...tags.filter(Boolean)],
+      tags: isFfaMode ? ['FFA', metadata.status.toUpperCase(), ...tags.filter(Boolean)] : [metadata.status.toUpperCase(), ...tags.filter(Boolean)],
       skillsets,
       bannedHunters: bannedUsers.map(u => u.id),
       bannedUsernames: bannedUsers.map(u => u.username),
@@ -128,14 +130,45 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
         {/* Header */}
         <div className="modal-header">
           <div>
-            <div className="modal-title">Post New Bounty</div>
-            <div className="modal-subtitle">Create a beatmap challenge for the community</div>
+            <div className="modal-title" style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {isFfaMode ? (
+                <>
+                  <span style={{ color: '#ff4d8d' }}>🔥</span> Free-For-All (FFA) Quest
+                </>
+              ) : (
+                'Post New Bounty'
+              )}
+            </div>
+            <div className="modal-subtitle">
+              {isFfaMode
+                ? 'Community Challenge Mode · No BP deduction · All members can post'
+                : 'Create an official beatmap challenge for the community'}
+            </div>
           </div>
           <button className="btn btn-icon btn-sm" onClick={onClose}><X size={14} /></button>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+            {isFfaMode && (
+              <div style={{
+                background: 'rgba(255, 77, 141, 0.08)',
+                border: '1px solid rgba(255, 77, 141, 0.3)',
+                borderRadius: 'var(--radius)',
+                padding: '10px 14px',
+                fontSize: 11,
+                color: '#ff4d8d',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+              }}>
+                <Sparkles size={16} style={{ flexShrink: 0 }} />
+                <div>
+                  <strong>High-Security FFA Mode:</strong> Everyone can post FFA quests! Newcomers have a <strong>24-hour cooldown</strong> per post. Beatmap is locked once created.
+                </div>
+              </div>
+            )}
 
             {/* Map URL */}
             <div className="form-group">
@@ -525,7 +558,7 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
               style={{ opacity: !metadata ? 0.4 : 1 }}
             >
               <Sparkles size={13} />
-              Publish Bounty ({calculatedMaxPool} BP)
+              {isFfaMode ? 'Publish FFA Quest (Free 🚀)' : `Publish Bounty (${calculatedMaxPool} BP)`}
             </button>
           </div>
         </form>
