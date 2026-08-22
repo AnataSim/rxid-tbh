@@ -437,7 +437,7 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
             {/* Bottom Primary Submit / Review Action Buttons */}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               {isGiver ? (
-                bounty.isFfa && !isBanned ? (
+                !isBanned ? (
                   <>
                     <button
                       onClick={() => onOpenSubmitProof(bounty)}

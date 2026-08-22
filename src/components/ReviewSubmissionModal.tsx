@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import type { Bounty, Submission } from '../types/bounty';
 import { X, CheckCircle, XCircle, ExternalLink, ShieldCheck, Coins, FileText, CheckCircle2, AlertOctagon, Sparkles } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 interface ReviewSubmissionModalProps {
   bounty: Bounty;
@@ -13,6 +14,7 @@ interface ReviewSubmissionModalProps {
 export const ReviewSubmissionModal: React.FC<ReviewSubmissionModalProps> = ({
   bounty, onClose, onApprove, onReject, onDeleteSubmission,
 }) => {
+  const { currentUser } = useAuth();
   const [activeTab, setActiveTab] = useState<'approval' | 'log'>('approval');
   const [rejectId, setRejectId]   = useState<string | null>(null);
   const [reason, setReason]       = useState('');
@@ -217,8 +219,23 @@ export const ReviewSubmissionModal: React.FC<ReviewSubmissionModalProps> = ({
                           </div>
                         )}
 
-                        {/* Reject Form / Approve Actions */}
-                        {rejectId === sub.id ? (
+                        {/* Anti-Self Approval Guard / Reject Form / Approve Actions */}
+                        {Boolean(currentUser && (sub.hunterId === currentUser.id || sub.hunterUsername?.toLowerCase() === currentUser.username?.toLowerCase())) ? (
+                          <div style={{
+                            padding: '12px 14px', borderTop: '1px solid var(--border)',
+                            background: 'rgba(239, 68, 68, 0.1)', borderLeft: '4px solid #f87171',
+                            color: '#f87171', fontSize: 12, fontWeight: 700,
+                            display: 'flex', alignItems: 'center', gap: 10,
+                          }}>
+                            <AlertOctagon size={18} style={{ flexShrink: 0 }} />
+                            <div>
+                              <div>Anti-Abuse Security Guard 🚫</div>
+                              <div style={{ fontSize: 11, fontWeight: 400, color: 'var(--text-2)', marginTop: 2, lineHeight: 1.4 }}>
+                                Anda mengunggah submission ini sebagai player. Anda tidak dapat menyetujui/menolak skor Anda sendiri — diperlukan <strong>BG lain</strong> untuk mereview submission ini.
+                              </div>
+                            </div>
+                          </div>
+                        ) : rejectId === sub.id ? (
                           <div style={{
                             padding: '12px 14px', borderTop: '1px solid var(--border)',
                             background: 'var(--red-dim)', display: 'flex', flexDirection: 'column', gap: 8,
