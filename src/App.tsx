@@ -453,14 +453,27 @@ export function AppContent() {
                   </div>
                 ))}
 
-                {activeRole === 'bounty_giver' && (
+                {(activeRole === 'bounty_giver' || bountySection === 'ffa') && (
                   <button
-                    onClick={() => setIsCreateOpen(true)}
+                    onClick={() => {
+                      if (bountySection === 'ffa') {
+                        const cd = getFfaCooldownInfo(currentUser);
+                        if (cd.onCooldown) {
+                          addToast(`⏳ Cooldown Active: Newcomers can post 1 FFA quest per 24 hours. Available in ${cd.hours}h ${cd.mins}m.`, 'error');
+                          return;
+                        }
+                      }
+                      setIsCreateOpen(true);
+                    }}
                     className="btn btn-primary btn-post-bounty-full-bar"
-                    title="Post Bounty (Giver Only)"
+                    style={{
+                      background: bountySection === 'ffa' ? 'linear-gradient(135deg, #ff4d8d, #e11d48)' : undefined,
+                      borderColor: bountySection === 'ffa' ? '#ff4d8d' : undefined,
+                    }}
+                    title={bountySection === 'ffa' ? 'Post FFA Quest (Anyone)' : 'Post Bounty (Giver Only)'}
                   >
                     <Plus size={20} color="#ffffff" />
-                    <span className="btn-post-label">Post Bounty Pertama</span>
+                    <span className="btn-post-label">{bountySection === 'ffa' ? 'Post FFA Quest' : 'Post Bounty Pertama'}</span>
                   </button>
                 )}
               </div>
@@ -503,47 +516,6 @@ export function AppContent() {
                 </button>
               </div>
 
-              <div>
-                {bountySection === 'official' && isGiver && (
-                  <button onClick={() => setIsCreateOpen(true)} className="btn btn-primary btn-sm">
-                    <Plus size={14} /> Post Official Bounty
-                  </button>
-                )}
-                {bountySection === 'ffa' && (
-                  (() => {
-                    const cd = getFfaCooldownInfo(currentUser);
-                    return (
-                      <button
-                        onClick={() => {
-                          if (cd.onCooldown) {
-                            addToast(`⏳ Cooldown Active: Newcomers can post 1 FFA quest per 24 hours. Available in ${cd.hours}h ${cd.mins}m.`, 'error');
-                            return;
-                          }
-                          setIsCreateOpen(true);
-                        }}
-                        className="btn"
-                        style={{
-                          background: cd.onCooldown ? 'rgba(255,255,255,0.06)' : 'linear-gradient(135deg, #ff4d8d 0%, #f43f5e 100%)',
-                          border: `1px solid ${cd.onCooldown ? 'var(--border)' : '#ff4d8d'}`,
-                          color: cd.onCooldown ? 'var(--text-3)' : '#ffffff',
-                          fontWeight: 700,
-                          fontSize: 12,
-                          borderRadius: 99,
-                          padding: '6px 16px',
-                          cursor: cd.onCooldown ? 'not-allowed' : 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                          boxShadow: cd.onCooldown ? 'none' : '0 0 14px rgba(255, 77, 141, 0.4)',
-                        }}
-                      >
-                        <Plus size={14} />
-                        {cd.onCooldown ? `⏳ Cooldown (${cd.hours}h ${cd.mins}m)` : 'Post FFA Quest (Anyone)'}
-                      </button>
-                    );
-                  })()
-                )}
-              </div>
             </div>
 
             {/* ── Filter Bar ── */}
