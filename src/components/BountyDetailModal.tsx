@@ -226,7 +226,7 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
                       {(bounty.rewardTier1 ?? 0).toLocaleString()} BP
                     </span>
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-1)', lineHeight: 1.5 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-1)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                     {bounty.instructionTier1 || instructions}
                   </div>
                 </div>
@@ -246,7 +246,7 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
                       {(bounty.rewardTier2 ?? 0).toLocaleString()} BP
                     </span>
                   </div>
-                  <div style={{ fontSize: 12, color: 'var(--text-1)', lineHeight: 1.5 }}>
+                  <div style={{ fontSize: 12, color: 'var(--text-1)', lineHeight: 1.5, whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
                     {bounty.instructionTier2 || instructions}
                   </div>
                 </div>
@@ -256,6 +256,7 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
                 padding: '12px 14px', borderRadius: 'var(--radius)',
                 background: 'var(--bg)', border: '1px solid var(--border)',
                 fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6,
+                whiteSpace: 'pre-wrap', wordBreak: 'break-word',
               }}>
                 {instructions}
               </div>
