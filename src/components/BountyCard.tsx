@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Bounty } from '../types/bounty';
 import { Star, Clock, Play, Download, Info } from 'lucide-react';
 import { DifficultyBadge } from './DifficultyRatingSection';
+import { calculateCountdown } from '../utils/timeUtils';
 
 interface BountyCardProps {
   bounty: Bounty;
@@ -10,6 +11,15 @@ interface BountyCardProps {
 
 export const BountyCard: React.FC<BountyCardProps> = ({ bounty, onSelect }) => {
   const { beatmap, reward, views, status } = bounty;
+  const [, setTick] = useState(0);
+
+  useEffect(() => {
+    if (!bounty.deadlineAt) return;
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [bounty.deadlineAt]);
+
+  const countdown = calculateCountdown(bounty.deadlineAt);
 
   // Skillsets (explicit field or inferred fallback for legacy maps)
   const rawSkillsets = (bounty.skillsets && bounty.skillsets.length > 0)
@@ -64,8 +74,32 @@ export const BountyCard: React.FC<BountyCardProps> = ({ bounty, onSelect }) => {
           </span>
         </div>
 
-        {/* BR: Accumulated community average difficulty rating badge */}
-        <div style={{ position: 'absolute', bottom: 8, right: 8, zIndex: 6 }}>
+        {/* BR: Accumulated community average difficulty rating badge + Live Countdown Timer */}
+        <div style={{ position: 'absolute', bottom: 8, right: 8, zIndex: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
+          {countdown && (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 4,
+                padding: '3px 8px',
+                borderRadius: 6,
+                background: 'rgba(0, 0, 0, 0.75)',
+                border: `1px solid ${countdown.isExpired ? '#f87171' : 'rgba(248, 113, 113, 0.6)'}`,
+                color: '#f87171',
+                fontSize: 11,
+                fontWeight: 800,
+                fontFamily: 'var(--mono)',
+                boxShadow: '0 0 10px rgba(239, 68, 68, 0.3)',
+                backdropFilter: 'blur(4px)',
+              }}
+              title={countdown.isExpired ? 'Quest Deadline Expired (LIMITED)' : `Time remaining: ${countdown.formatted}`}
+            >
+              <Clock size={10} color="#f87171" />
+              <span>{countdown.badgeText}</span>
+            </div>
+          )}
+
           <DifficultyBadge rating={bounty.avgDifficulty || 0} />
         </div>
       </div>

@@ -10,6 +10,7 @@ import { useAuth } from '../context/AuthContext';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { DifficultyRatingSection } from './DifficultyRatingSection';
+import { calculateCountdown } from '../utils/timeUtils';
 
 interface BountyDetailModalProps {
   bounty: Bounty | null;
@@ -35,6 +36,16 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
     (bounty.bannedHunters && bounty.bannedHunters.includes(currentUser.id)) ||
     (bounty.bannedUsernames && bounty.bannedUsernames.some(u => u.toLowerCase() === (currentUser.username || '').toLowerCase()))
   );
+
+  const [, setTick] = useState(0);
+  useEffect(() => {
+    if (!bounty.deadlineAt) return;
+    const interval = setInterval(() => setTick(t => t + 1), 1000);
+    return () => clearInterval(interval);
+  }, [bounty.deadlineAt]);
+
+  const countdown = calculateCountdown(bounty.deadlineAt);
+  const isExpired = Boolean(countdown?.isExpired);
 
   const [subsList, setSubsList] = useState<Submission[]>(bounty.submissions || []);
   const [refreshing, setRefreshing] = useState(false);
@@ -197,14 +208,26 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
 
         {/* Body */}
         <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-          {/* Dates */}
-          <div style={{ display: 'flex', gap: 16, fontSize: 11, color: 'var(--text-3)' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Calendar size={11} /> Posted {beatmap.postedDate}
-            </span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-              <Calendar size={11} /> Updated {beatmap.updatedDate}
-            </span>
+          {/* Dates & Timer */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, fontSize: 11, color: 'var(--text-3)', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 16 }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Calendar size={11} /> Posted {beatmap.postedDate}
+              </span>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <Calendar size={11} /> Updated {beatmap.updatedDate}
+              </span>
+            </div>
+            {countdown && (
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: 4,
+                padding: '3px 10px', borderRadius: 99,
+                background: 'rgba(239, 68, 68, 0.15)', border: '1px solid rgba(239, 68, 68, 0.4)',
+                color: '#f87171', fontSize: 11, fontWeight: 800, fontFamily: 'var(--mono)',
+              }}>
+                <Clock size={11} /> {countdown.isExpired ? 'LIMITED (Expired)' : `Timer: ${countdown.formatted}`}
+              </span>
+            )}
           </div>
 
           {/* Mission Instructions */}
@@ -437,7 +460,32 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
             {/* Bottom Primary Submit / Review Action Buttons */}
             <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               {isGiver ? (
-                !isBanned ? (
+                isExpired ? (
+                  <>
+                    <button
+                      disabled
+                      className="btn btn-primary btn-lg"
+                      style={{
+                        flex: 1,
+                        opacity: 0.5,
+                        cursor: 'not-allowed',
+                        background: 'rgba(239, 68, 68, 0.2)',
+                        borderColor: 'rgba(239, 68, 68, 0.4)',
+                        color: '#f87171',
+                      }}
+                      title="Quest Deadline Expired (LIMITED)"
+                    >
+                      <Clock size={14} /> Quest Expired (LIMITED)
+                    </button>
+                    <button
+                      onClick={() => onOpenReview(bounty)}
+                      className="btn btn-subtle btn-lg"
+                      style={{ flex: 1 }}
+                    >
+                      <ShieldCheck size={14} /> Review Proofs ({pending.length})
+                    </button>
+                  </>
+                ) : !isBanned ? (
                   <>
                     <button
                       onClick={() => onOpenSubmitProof(bounty)}
@@ -460,6 +508,22 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
                     Review Proofs ({pending.length})
                   </button>
                 )
+              ) : isExpired ? (
+                <button
+                  disabled
+                  className="btn btn-primary btn-lg"
+                  style={{
+                    width: '100%',
+                    opacity: 0.5,
+                    cursor: 'not-allowed',
+                    background: 'rgba(239, 68, 68, 0.2)',
+                    borderColor: 'rgba(239, 68, 68, 0.4)',
+                    color: '#f87171',
+                  }}
+                  title="Quest Deadline Expired (LIMITED)"
+                >
+                  <Clock size={14} /> Quest Expired (LIMITED)
+                </button>
               ) : (
                 <button
                   onClick={() => !isBanned && onOpenSubmitProof(bounty)}

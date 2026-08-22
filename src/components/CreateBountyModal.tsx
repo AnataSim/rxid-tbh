@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { User, Bounty, BeatmapMetadata } from '../types/bounty';
 import { fetchBeatmapMetadata } from '../services/osuApi';
-import { X, Link as LinkIcon, Coins, Plus, Trash2, CheckCircle2, Sparkles, UserX, Layers } from 'lucide-react';
+import { X, Link as LinkIcon, Coins, Plus, Trash2, CheckCircle2, Sparkles, UserX, Layers, Clock } from 'lucide-react';
 import { collection, query, limit, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
@@ -37,6 +37,7 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
   const [allRegisteredUsers, setAllRegisteredUsers] = useState<User[]>([]);
   const [bannedUsers, setBannedUsers] = useState<User[]>([]);
   const [restrictSelfSubmit, setRestrictSelfSubmit] = useState(true);
+  const [deadlineDays, setDeadlineDays] = useState<string>('');
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -128,6 +129,10 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
       if (t2Amount !== undefined) newBounty.rewardTier2 = t2Amount;
       if (t1Instr) newBounty.instructionTier1 = t1Instr;
       if (t2Instr) newBounty.instructionTier2 = t2Instr;
+    }
+
+    if (deadlineDays && Number(deadlineDays) > 0) {
+      newBounty.deadlineAt = new Date(Date.now() + Number(deadlineDays) * 86400000).toISOString();
     }
 
     onCreateBounty(newBounty);
@@ -500,6 +505,26 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
                 placeholder="e.g. Aim, Jump, Stream, Reading, Stamina"
                 className="form-input"
               />
+            </div>
+
+            {/* Bounty Deadline / Timer (Days) */}
+            <div className="form-group">
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#f87171' }}>
+                <Clock size={12} /> Bounty Deadline / Timer (Days)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={deadlineDays}
+                onChange={e => setDeadlineDays(e.target.value)}
+                placeholder="e.g. 3 (Set deadline in days, leave blank for no limit)"
+                className="form-input"
+                style={{ fontSize: 12 }}
+              />
+              <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>
+                Setting a deadline will close quest submission automatically when time expires. Status will show as <strong style={{ color: '#f87171' }}>LIMITED</strong>.
+              </div>
             </div>
 
             {/* Self-Participation Restriction (FFA Mode) OR Ban Player (Official Mode) */}

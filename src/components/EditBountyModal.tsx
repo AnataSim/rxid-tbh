@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Bounty, User } from '../types/bounty';
-import { X, Coins, Plus, Trash2, CheckCircle2, Save, UserX, Layers } from 'lucide-react';
+import { X, Coins, Plus, Trash2, CheckCircle2, Save, UserX, Layers, Clock } from 'lucide-react';
 import { collection, query, limit, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
@@ -33,6 +33,12 @@ export const EditBountyModal: React.FC<EditBountyModalProps> = ({
   const [allRegisteredUsers, setAllRegisteredUsers] = useState<User[]>([]);
   const [bannedHunters, setBannedHunters] = useState<string[]>(bounty.bannedHunters || []);
   const [bannedUsernames, setBannedUsernames] = useState<string[]>(bounty.bannedUsernames || []);
+  const [deadlineDays, setDeadlineDays] = useState<string>(() => {
+    if (!bounty.deadlineAt) return '';
+    const diffMs = new Date(bounty.deadlineAt).getTime() - Date.now();
+    if (diffMs <= 0) return '0';
+    return String(Math.max(1, Math.ceil(diffMs / (1000 * 60 * 60 * 24))));
+  });
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -98,6 +104,10 @@ export const EditBountyModal: React.FC<EditBountyModalProps> = ({
       finalRewardAmount = Number(rewardAmount) || 0;
     }
 
+    const newDeadlineAt = (deadlineDays && Number(deadlineDays) > 0)
+      ? new Date(Date.now() + Number(deadlineDays) * 86400000).toISOString()
+      : undefined;
+
     await onSaveBounty(bounty.id, {
       reward: { ...bounty.reward, amount: finalRewardAmount },
       isDualReward: isDualMode,
@@ -111,6 +121,7 @@ export const EditBountyModal: React.FC<EditBountyModalProps> = ({
       skillsets,
       bannedHunters,
       bannedUsernames,
+      deadlineAt: newDeadlineAt,
     });
     setSaving(false);
     onClose();
@@ -398,6 +409,26 @@ export const EditBountyModal: React.FC<EditBountyModalProps> = ({
                 placeholder="e.g. Aim, Jump, Stream, Reading, Stamina"
                 className="form-input"
               />
+            </div>
+
+            {/* Bounty Deadline / Timer (Days) */}
+            <div className="form-group">
+              <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: 6, color: '#f87171' }}>
+                <Clock size={12} /> Bounty Deadline / Timer (Days)
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="365"
+                value={deadlineDays}
+                onChange={e => setDeadlineDays(e.target.value)}
+                placeholder="e.g. 3 (Set deadline in days, leave blank for no limit)"
+                className="form-input"
+                style={{ fontSize: 12 }}
+              />
+              <div style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>
+                Setting a deadline will close quest submission automatically when time expires. Status will show as <strong style={{ color: '#f87171' }}>LIMITED</strong>.
+              </div>
             </div>
 
             {/* Ban Player (Restricted Hunters) */}

@@ -87,6 +87,7 @@ export interface Bounty {
   status: 'open' | 'in_progress' | 'completed' | 'closed';
   createdAt: string;
   deadline?: string;
+  deadlineAt?: string;         // ISO timestamp when bounty expires
   submissions: Submission[];
   views: number;
   avgDifficulty?: number;

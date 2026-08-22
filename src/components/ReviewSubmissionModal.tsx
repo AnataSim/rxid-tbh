@@ -19,6 +19,8 @@ export const ReviewSubmissionModal: React.FC<ReviewSubmissionModalProps> = ({
   const [rejectId, setRejectId]   = useState<string | null>(null);
   const [reason, setReason]       = useState('');
   const [localStatusMap, setLocalStatusMap] = useState<Record<string, 'approved' | 'rejected'>>({});
+  const [localTierMap, setLocalTierMap]     = useState<Record<string, 1 | 2>>({});
+  const [localAwardedBpMap, setLocalAwardedBpMap] = useState<Record<string, number>>({});
   const [deletedIds, setDeletedIds]         = useState<Set<string>>(new Set());
   const [logImagePreview, setLogImagePreview] = useState<string | null>(null);
 
@@ -34,7 +36,7 @@ export const ReviewSubmissionModal: React.FC<ReviewSubmissionModalProps> = ({
 
   // Compute pending approvals (excluding locally approved/rejected/deleted items)
   const pending = bounty.submissions.filter(s =>
-    (s.status === 'pending') && !localStatusMap[s.id] && !deletedIds.has(s.id)
+    s.status === 'pending' && !localStatusMap[s.id] && !deletedIds.has(s.id)
   );
 
   // Compute logs (includes items marked approved/rejected locally or in Firestore, excluding deleted)
@@ -43,12 +45,20 @@ export const ReviewSubmissionModal: React.FC<ReviewSubmissionModalProps> = ({
   ).map(s => ({
     ...s,
     status: localStatusMap[s.id] || s.status,
+    awardedTier: localTierMap[s.id] || s.awardedTier,
+    awardedBp: localAwardedBpMap[s.id] !== undefined ? localAwardedBpMap[s.id] : s.awardedBp,
   }));
 
   const handleConfirmApprove = (sub: Submission, selectedTier?: 1 | 2, tierAmount?: number) => {
     setLocalStatusMap(prev => ({ ...prev, [sub.id]: 'approved' }));
+    if (selectedTier) {
+      setLocalTierMap(prev => ({ ...prev, [sub.id]: selectedTier }));
+    }
     const baseReward = tierAmount !== undefined ? tierAmount : bounty.reward.amount;
     const poaVal = Number(poaMap[sub.id]) || 0;
+    const expectedBp = baseReward + poaVal;
+    setLocalAwardedBpMap(prev => ({ ...prev, [sub.id]: expectedBp }));
+
     onApprove(bounty.id, sub.id, sub.hunterId, bounty.beatmap.title, baseReward, selectedTier, poaVal);
   };
 
@@ -324,8 +334,17 @@ export const ReviewSubmissionModal: React.FC<ReviewSubmissionModalProps> = ({
                                     <CheckCircle size={14} color="#f87171" />
                                     Approve Merah ({rbpTier1.toLocaleString()} BP)
                                   </div>
-                                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
-                                    {currentPoa > 0 ? `(Base ${bounty.rewardTier1 ?? 100} + ${currentPoa} PoA)` : `"${bounty.instructionTier1 || 'Tier 1'}"`}
+                                  <div style={{
+                                    fontSize: 11,
+                                    color: 'rgba(255,255,255,0.85)',
+                                    marginTop: 4,
+                                    lineHeight: 1.3,
+                                    textAlign: 'center',
+                                    whiteSpace: 'normal',
+                                    wordBreak: 'break-word',
+                                    maxWidth: '100%',
+                                  }}>
+                                    {currentPoa > 0 ? `(Base ${bounty.rewardTier1 ?? 100} + ${currentPoa} PoA)` : bounty.instructionTier1 ? `"${bounty.instructionTier1}"` : 'Tier 1'}
                                   </div>
                                 </button>
 
@@ -353,8 +372,17 @@ export const ReviewSubmissionModal: React.FC<ReviewSubmissionModalProps> = ({
                                     <CheckCircle size={14} color="#4ade80" />
                                     Approve Hijau ({rbpTier2.toLocaleString()} BP)
                                   </div>
-                                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
-                                    {currentPoa > 0 ? `(Base ${bounty.rewardTier2 ?? 150} + ${currentPoa} PoA)` : `"${bounty.instructionTier2 || 'Tier 2'}"`}
+                                  <div style={{
+                                    fontSize: 11,
+                                    color: 'rgba(255,255,255,0.85)',
+                                    marginTop: 4,
+                                    lineHeight: 1.3,
+                                    textAlign: 'center',
+                                    whiteSpace: 'normal',
+                                    wordBreak: 'break-word',
+                                    maxWidth: '100%',
+                                  }}>
+                                    {currentPoa > 0 ? `(Base ${bounty.rewardTier2 ?? 150} + ${currentPoa} PoA)` : bounty.instructionTier2 ? `"${bounty.instructionTier2}"` : 'Tier 2'}
                                   </div>
                                 </button>
 
@@ -438,11 +466,23 @@ export const ReviewSubmissionModal: React.FC<ReviewSubmissionModalProps> = ({
                           {/* Status Badge & Delete */}
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             {isApproved ? (
-                              <span className="sub-status sub-status-approved" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <CheckCircle2 size={11} /> Approved
-                                {sub.awardedTier === 1 && <span style={{ color: '#f87171', fontWeight: 800 }}>(Merah)</span>}
-                                {sub.awardedTier === 2 && <span style={{ color: '#4ade80', fontWeight: 800 }}>(Hijau)</span>}
-                                (+{sub.awardedBp !== undefined ? sub.awardedBp : bounty.reward.amount} {bounty.reward.currency}
+                              <span
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: 4,
+                                  background: sub.awardedTier === 1 ? 'rgba(239, 68, 68, 0.18)' : 'rgba(34, 197, 94, 0.18)',
+                                  border: `1px solid ${sub.awardedTier === 1 ? 'rgba(239, 68, 68, 0.6)' : 'rgba(34, 197, 94, 0.6)'}`,
+                                  color: sub.awardedTier === 1 ? '#f87171' : '#4ade80',
+                                  padding: '4px 10px',
+                                  borderRadius: 99,
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                }}
+                              >
+                                <CheckCircle2 size={12} />
+                                APPROVED {sub.awardedTier === 1 ? '(Merah)' : sub.awardedTier === 2 ? '(Hijau)' : ''}
+                                (+{sub.awardedBp !== undefined ? sub.awardedBp : (sub.awardedTier === 1 ? bounty.rewardTier1 || 100 : sub.awardedTier === 2 ? bounty.rewardTier2 || 150 : bounty.reward.amount)} {bounty.reward.currency}
                                 {sub.bpMultiplier !== undefined && sub.bpMultiplier !== 1.0 ? ` [${sub.bpMultiplier}x]` : ''}
                                 {sub.poa !== undefined && sub.poa > 0 ? ` +${sub.poa} PoA ✨` : ''})
                               </span>
