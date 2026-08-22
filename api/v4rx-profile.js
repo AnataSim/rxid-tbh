@@ -1,6 +1,19 @@
 let leaderboardCache = null;
 let lastCacheTime = 0;
 
+async function fetchWithTimeout(url, options = {}, timeoutMs = 3500) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(timer);
+    return res;
+  } catch (err) {
+    clearTimeout(timer);
+    throw err;
+  }
+}
+
 async function getLiveLeaderboard() {
   const now = Date.now();
   if (leaderboardCache && (now - lastCacheTime < 60000)) {
@@ -8,11 +21,11 @@ async function getLiveLeaderboard() {
   }
 
   try {
-    const res = await fetch('https://v4rx.me/user/leaderboard/', {
+    const res = await fetchWithTimeout('https://v4rx.me/user/leaderboard/', {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       },
-    });
+    }, 3500);
 
     if (res.ok) {
       const html = await res.text();
@@ -106,11 +119,11 @@ export default async function handler(req, res) {
 
   try {
     const profileUrl = `https://v4rx.me/user/profile.php?id=${liveId}`;
-    const pRes = await fetch(profileUrl, {
+    const pRes = await fetchWithTimeout(profileUrl, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       },
-    });
+    }, 3500);
 
     if (pRes.ok) {
       const pText = await pRes.text();

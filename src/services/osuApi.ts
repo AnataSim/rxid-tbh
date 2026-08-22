@@ -1,5 +1,6 @@
 import type { BeatmapMetadata } from '../types/bounty';
 import { cacheService } from './cacheService';
+import { fetchWithTimeout } from './httpService';
 
 /**
  * Extracts beatmapset ID and beatmap ID from any osu! URL format
@@ -82,21 +83,8 @@ export async function fetchBeatmapMetadata(urlOrId: string): Promise<BeatmapMeta
   return result;
 }
 
-async function fetchWithTimeout(url: string, timeoutMs: number = 2000): Promise<Response> {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    const res = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeoutId);
-    return res;
-  } catch (err) {
-    clearTimeout(timeoutId);
-    throw err;
-  }
-}
-
 async function fetchFromOsuDirect(validSetId: number, validMapId: number, covers: ReturnType<typeof getOsuCoverUrls>): Promise<BeatmapMetadata> {
-  const res = await fetchWithTimeout(`https://osu.direct/api/v2/s/${validSetId}`, 2000);
+  const res = await fetchWithTimeout(`https://osu.direct/api/v2/s/${validSetId}`, { timeoutMs: 2000 });
   if (!res.ok) throw new Error('osu.direct failed');
   const data = await res.json();
   if (!data || (!data.title && !data.title_unicode)) throw new Error('Invalid metadata');
@@ -125,7 +113,7 @@ async function fetchFromOsuDirect(validSetId: number, validMapId: number, covers
 }
 
 async function fetchFromCatboy(validSetId: number, validMapId: number, covers: ReturnType<typeof getOsuCoverUrls>): Promise<BeatmapMetadata> {
-  const res = await fetchWithTimeout(`https://catboy.best/api/v2/s/${validSetId}`, 2000);
+  const res = await fetchWithTimeout(`https://catboy.best/api/v2/s/${validSetId}`, { timeoutMs: 2000 });
   if (!res.ok) throw new Error('Catboy failed');
   const data = await res.json();
   if (!data || (!data.title && !data.title_unicode)) throw new Error('Invalid metadata');
@@ -154,7 +142,7 @@ async function fetchFromCatboy(validSetId: number, validMapId: number, covers: R
 }
 
 async function fetchFromChimu(validSetId: number, validMapId: number, covers: ReturnType<typeof getOsuCoverUrls>): Promise<BeatmapMetadata> {
-  const res = await fetchWithTimeout(`https://api.chimu.moe/v1/set/${validSetId}`, 2000);
+  const res = await fetchWithTimeout(`https://api.chimu.moe/v1/set/${validSetId}`, { timeoutMs: 2000 });
   if (!res.ok) throw new Error('Chimu failed');
   const data = await res.json();
   if (!data || (!data.Title && !data.TitleUnicode)) throw new Error('Invalid metadata');
@@ -323,7 +311,7 @@ async function fetchV4rxProfileInternal(clean: string): Promise<V4rxFetchedProfi
 
   // 1. Try Vercel Serverless Function /api/v4rx-profile (0 CORS restrictions on Vercel deployment!)
   try {
-    const serverlessRes = await fetch(`/api/v4rx-profile?id=${encodeURIComponent(clean)}`);
+    const serverlessRes = await fetchWithTimeout(`/api/v4rx-profile?id=${encodeURIComponent(clean)}`, { timeoutMs: 3500 });
     if (serverlessRes.ok) {
       const data = await serverlessRes.json();
       if (data && data.username && !data.username.startsWith('Player #')) {
@@ -331,7 +319,7 @@ async function fetchV4rxProfileInternal(clean: string): Promise<V4rxFetchedProfi
       }
     }
   } catch (err) {
-    // Fallback to client proxies if serverless endpoint is unavailable
+    // Fallback to client proxies or presets if serverless endpoint is unavailable or timed out
   }
 
   // 2. Try fetching real HTML profile via CORS proxies
@@ -343,7 +331,7 @@ async function fetchV4rxProfileInternal(clean: string): Promise<V4rxFetchedProfi
 
     for (const url of urlsToTry) {
       try {
-        const res = await fetch(url);
+        const res = await fetchWithTimeout(url, { timeoutMs: 3000 });
         if (res.ok) {
           const raw = await res.json().catch(() => null);
           const text = raw?.contents || (await res.text().catch(() => ''));
