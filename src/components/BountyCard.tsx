@@ -36,15 +36,9 @@ export const BountyCard: React.FC<BountyCardProps> = ({ bounty, onSelect }) => {
 
         {/* TL: Status + Skillset badges */}
         <div className="card-img-tl" style={{ display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'flex-start' }}>
-          {bounty.isFfa ? (
-            <span className="label" style={{ background: 'rgba(255, 77, 141, 0.25)', border: '1px solid rgba(255, 77, 141, 0.5)', color: '#ff4d8d', fontWeight: 800, textShadow: '0 0 8px rgba(255, 77, 141, 0.4)' }}>
-              🔥 FFA
-            </span>
-          ) : (
-            <span className={`label ${beatmap.status.toLowerCase() === 'loved' ? 'label-loved' : beatmap.status.toLowerCase() === 'graveyard' ? 'label-graveyard' : 'label-ranked'}`}>
-              {beatmap.status.toUpperCase()}
-            </span>
-          )}
+          <span className={`label ${beatmap.status.toLowerCase() === 'loved' ? 'label-loved' : beatmap.status.toLowerCase() === 'graveyard' ? 'label-graveyard' : 'label-ranked'}`}>
+            {beatmap.status.toUpperCase()}
+          </span>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
             {skillsets.slice(0, 2).map((skill, idx) => (
               <span key={idx} className="label label-skillset">
@@ -91,10 +85,10 @@ export const BountyCard: React.FC<BountyCardProps> = ({ bounty, onSelect }) => {
         <div className="card-bottom">
           <div className="reward-pill">
             {bounty.isFfa ? (
-              <>
-                <span style={{ color: '#ff4d8d', fontWeight: 800 }}>FREE FOR ALL</span>
-                <span style={{ color: 'var(--text-3)', fontSize: 10 }}>QUEST</span>
-              </>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                <span style={{ color: '#ff4d8d', fontWeight: 800, fontSize: 11 }}>Giver:</span>
+                <span style={{ color: 'var(--text-1)', fontWeight: 700, fontSize: 11 }}>{bounty.giver?.username || 'Community'}</span>
+              </div>
             ) : bounty.isDualReward ? (
               <>
                 <span style={{ color: '#f87171', fontWeight: 800 }}>{(bounty.rewardTier1 ?? 0).toLocaleString()}</span>
