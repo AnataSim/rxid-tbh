@@ -84,7 +84,7 @@ export const Navbar: React.FC<NavbarProps> = ({
           {(isGiver || bountySection === 'ffa') && (
             <button
               onClick={onOpenCreateModal}
-              className="btn btn-primary"
+              className="btn"
               title={bountySection === 'ffa' ? 'Post FFA Quest' : 'Post Official Bounty'}
               style={{
                 width: 34,
@@ -95,6 +95,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
+                background: bountySection === 'ffa' ? 'linear-gradient(135deg, #ff4d8d, #e11d48)' : 'linear-gradient(135deg, #ef4444, #dc2626)',
+                border: `1px solid ${bountySection === 'ffa' ? '#ff4d8d' : '#ef4444'}`,
+                boxShadow: bountySection === 'ffa' ? '0 0 12px rgba(255, 77, 141, 0.5)' : '0 0 10px rgba(239, 68, 68, 0.4)',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
               }}
             >
               <Plus size={16} color="#ffffff" />
