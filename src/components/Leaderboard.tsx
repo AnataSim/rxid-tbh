@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { collection, query, orderBy, limit, onSnapshot, deleteDoc, setDoc, doc } from 'firebase/firestore';
+import { collection, query, limit, onSnapshot, deleteDoc, setDoc, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { User } from '../types/bounty';
 import { Trophy, Coins, Target, Star, Zap, Loader2, RotateCw } from 'lucide-react';
@@ -14,6 +14,7 @@ import { cacheService } from '../services/cacheService';
 import { DevBadge } from './DevBadge';
 
 export const Leaderboard: React.FC = () => {
+  const [filterMode, setFilterMode] = useState<'earnings' | 'pp'>('earnings');
   const [players, setPlayers] = useState<User[]>(() => {
     return cacheService.get<User[]>('bountyosu_leaderboard_cache') || [];
   });
@@ -34,8 +35,7 @@ export const Leaderboard: React.FC = () => {
 
     const q = query(
       collection(db, 'users'),
-      orderBy('bountyPoints', 'desc'),
-      limit(50)
+      limit(100)
     );
 
     const unsub = onSnapshot(q, (snapshot) => {
@@ -59,16 +59,6 @@ export const Leaderboard: React.FC = () => {
           cleanList.push(item.data);
         }
       }
-
-      // Sort cleanList: Primary = BP desc, Secondary = Earliest timestamp
-      cleanList.sort((a, b) => {
-        const bpA = a.bountyPoints || 100;
-        const bpB = b.bountyPoints || 100;
-        if (bpA !== bpB) return bpB - bpA;
-        const timeA = new Date(a.lastBpUpdatedAt || a.createdAt || '2026-08-19T00:00:00Z').getTime();
-        const timeB = new Date(b.lastBpUpdatedAt || b.createdAt || '2026-08-19T00:00:00Z').getTime();
-        return timeA - timeB;
-      });
 
       setPlayers(cleanList);
       setLoading(false);
@@ -154,6 +144,26 @@ export const Leaderboard: React.FC = () => {
     ))
   );
 
+  // Dynamic sorting based on filterMode
+  const sortedPlayers = [...uniquePlayers].sort((a, b) => {
+    if (filterMode === 'earnings') {
+      const bpA = a.bountyPoints || 100;
+      const bpB = b.bountyPoints || 100;
+      if (bpA !== bpB) return bpB - bpA;
+      const timeA = new Date(a.lastBpUpdatedAt || a.createdAt || '2026-08-19T00:00:00Z').getTime();
+      const timeB = new Date(b.lastBpUpdatedAt || b.createdAt || '2026-08-19T00:00:00Z').getTime();
+      return timeA - timeB;
+    } else {
+      // Sort by PP (v4rxPp)
+      const ppA = a.v4rxPp || 0;
+      const ppB = b.v4rxPp || 0;
+      if (ppA !== ppB) return ppB - ppA;
+      const bpA = a.bountyPoints || 100;
+      const bpB = b.bountyPoints || 100;
+      return bpB - bpA;
+    }
+  });
+
   if (loading) {
     return (
       <div className="anim-in" style={{ maxWidth: 760, margin: '0 auto', paddingTop: 80, textAlign: 'center' }}>
@@ -166,17 +176,82 @@ export const Leaderboard: React.FC = () => {
   return (
     <div className="anim-in" style={{ maxWidth: 760, margin: '0 auto', paddingTop: 32, paddingBottom: 48 }}>
       {/* Header */}
-      <div style={{ marginBottom: 28, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <div className="merah-putih-neon-box" style={{ width: 34, height: 34 }}>
-              <Trophy size={18} color="#ef4444" />
-            </div>
-            <h1 className="page-title">Leaderboard</h1>
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+          <div className="merah-putih-neon-box" style={{ width: 34, height: 34 }}>
+            <Trophy size={18} color="#ef4444" />
           </div>
-          <p className="page-sub">
-            Top Bounty Hunters ranked by BP earned across v4rx.me beatmap challenges.
-          </p>
+          <h1 className="page-title">Leaderboard</h1>
+        </div>
+        <p className="page-sub">
+          {filterMode === 'earnings'
+            ? 'Top Bounty Hunters ranked by BP earned across v4rx.me beatmap challenges.'
+            : 'Top players ranked by total v4rx.me Performance Points (PP).'}
+        </p>
+      </div>
+
+      {/* Controls Bar: Filter Tabs + Refresh Button */}
+      <div style={{
+        marginBottom: 24,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: 12,
+      }}>
+        {/* Filter Toggle Buttons (Earnings / PP) */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 4,
+          background: 'rgba(20, 20, 26, 0.8)',
+          padding: '4px',
+          borderRadius: 12,
+          border: '1px solid var(--border)',
+        }}>
+          <button
+            onClick={() => setFilterMode('earnings')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '7px 16px',
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: 'none',
+              background: filterMode === 'earnings' ? 'var(--accent)' : 'transparent',
+              color: filterMode === 'earnings' ? '#ffffff' : 'var(--text-3)',
+              boxShadow: filterMode === 'earnings' ? '0 2px 10px rgba(239, 68, 68, 0.3)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Coins size={14} />
+            <span>Earnings (BP)</span>
+          </button>
+
+          <button
+            onClick={() => setFilterMode('pp')}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 6,
+              padding: '7px 16px',
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 600,
+              cursor: 'pointer',
+              border: 'none',
+              background: filterMode === 'pp' ? '#a855f7' : 'transparent',
+              color: filterMode === 'pp' ? '#ffffff' : 'var(--text-3)',
+              boxShadow: filterMode === 'pp' ? '0 2px 10px rgba(168, 85, 247, 0.3)' : 'none',
+              transition: 'all 0.15s ease',
+            }}
+          >
+            <Zap size={14} />
+            <span>PP (Performance Points)</span>
+          </button>
         </div>
 
         {/* Refresh Button */}
@@ -205,7 +280,7 @@ export const Leaderboard: React.FC = () => {
         </button>
       </div>
 
-      {uniquePlayers.length === 0 ? (
+      {sortedPlayers.length === 0 ? (
         <div className="empty">
           <div className="empty-icon"><Trophy size={20} /></div>
           <div>
@@ -221,10 +296,12 @@ export const Leaderboard: React.FC = () => {
             <div>#</div>
             <div>Player</div>
             <div style={{ textAlign: 'right' }}>Bounties</div>
-            <div style={{ textAlign: 'right' }}>Earnings</div>
+            <div style={{ textAlign: 'right', color: filterMode === 'earnings' ? 'var(--gold)' : undefined }}>
+              Earnings {filterMode === 'earnings' ? '▼' : ''}
+            </div>
             <div style={{ textAlign: 'right' }}>Rank</div>
           </div>
-          {uniquePlayers.map((p, i) => (
+          {sortedPlayers.map((p, i) => (
             <div
               key={p.id || p.uid || i}
               className={`lb-row ${i === 0 ? 'top-1' : i === 1 ? 'top-2' : i === 2 ? 'top-3' : ''}`}
@@ -265,7 +342,20 @@ export const Leaderboard: React.FC = () => {
                           <Star size={9} /> #{rankVal}
                         </span>
                         <span style={{ margin: '0 2px', color: 'var(--text-4)' }}>·</span>
-                        <span className="mono" style={{ fontSize: 10 }}>{ppVal.toLocaleString()} pp</span>
+                        <span
+                          className="mono"
+                          style={{
+                            fontSize: 10,
+                            color: filterMode === 'pp' ? '#c084fc' : undefined,
+                            fontWeight: filterMode === 'pp' ? 700 : undefined,
+                            background: filterMode === 'pp' ? 'rgba(168, 85, 247, 0.15)' : undefined,
+                            padding: filterMode === 'pp' ? '1px 5px' : undefined,
+                            borderRadius: filterMode === 'pp' ? '4px' : undefined,
+                            border: filterMode === 'pp' ? '1px solid rgba(168, 85, 247, 0.3)' : undefined,
+                          }}
+                        >
+                          {ppVal.toLocaleString()} pp {filterMode === 'pp' ? '▼' : ''}
+                        </span>
                         <span style={{ margin: '0 2px', color: 'var(--text-4)' }}>·</span>
                         <span>{accVal}%</span>
                         <span style={{ marginLeft: 4 }}>{titleVal}</span>
@@ -276,7 +366,7 @@ export const Leaderboard: React.FC = () => {
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
                 <Target size={12} style={{ color: 'var(--accent)' }} />
-                <span className="lb-num">{p.bountiesClaimedCount}</span>
+                <span className="lb-num">{p.bountiesClaimedCount || 0}</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
                 <Coins size={13} style={{ color: 'var(--gold)' }} />
@@ -298,8 +388,9 @@ export const Leaderboard: React.FC = () => {
         fontSize: 11, color: 'var(--text-3)',
       }}>
         <Zap size={11} style={{ color: 'var(--accent)' }} />
-        <span>Synced with Firebase · {uniquePlayers.length} active players registered</span>
+        <span>Synced with Firebase · {sortedPlayers.length} active players registered ({filterMode === 'earnings' ? 'Sorted by Earnings BP' : 'Sorted by v4rx.me PP'})</span>
       </div>
     </div>
   );
 };
+
