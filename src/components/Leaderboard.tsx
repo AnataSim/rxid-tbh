@@ -144,25 +144,36 @@ export const Leaderboard: React.FC = () => {
     ))
   );
 
-  // Dynamic sorting based on filterMode
-  const sortedPlayers = [...uniquePlayers].sort((a, b) => {
-    if (filterMode === 'earnings') {
-      const bpA = a.bountyPoints || 100;
-      const bpB = b.bountyPoints || 100;
-      if (bpA !== bpB) return bpB - bpA;
-      const timeA = new Date(a.lastBpUpdatedAt || a.createdAt || '2026-08-19T00:00:00Z').getTime();
-      const timeB = new Date(b.lastBpUpdatedAt || b.createdAt || '2026-08-19T00:00:00Z').getTime();
-      return timeA - timeB;
-    } else {
-      // Sort by PP (v4rxPp)
-      const ppA = a.v4rxPp || 0;
-      const ppB = b.v4rxPp || 0;
-      if (ppA !== ppB) return ppB - ppA;
-      const bpA = a.bountyPoints || 100;
-      const bpB = b.bountyPoints || 100;
-      return bpB - bpA;
+  // Calculate fixed Earnings (BP) Rank for every player to determine Cowboy Hat Rank Badge
+  const earningsSortedPlayers = [...uniquePlayers].sort((a, b) => {
+    const bpA = a.bountyPoints || 100;
+    const bpB = b.bountyPoints || 100;
+    if (bpA !== bpB) return bpB - bpA;
+    const timeA = new Date(a.lastBpUpdatedAt || a.createdAt || '2026-08-19T00:00:00Z').getTime();
+    const timeB = new Date(b.lastBpUpdatedAt || b.createdAt || '2026-08-19T00:00:00Z').getTime();
+    return timeA - timeB;
+  });
+
+  const earningsRankMap = new Map<string, number>();
+  earningsSortedPlayers.forEach((p, index) => {
+    const key = p.id || p.uid || (p.username ? p.username.trim().toLowerCase() : '');
+    if (key) {
+      earningsRankMap.set(key, index + 1);
     }
   });
+
+  // Dynamic sorting based on filterMode
+  const sortedPlayers = filterMode === 'earnings'
+    ? earningsSortedPlayers
+    : [...uniquePlayers].sort((a, b) => {
+        // Sort by PP (v4rxPp)
+        const ppA = a.v4rxPp || 0;
+        const ppB = b.v4rxPp || 0;
+        if (ppA !== ppB) return ppB - ppA;
+        const bpA = a.bountyPoints || 100;
+        const bpB = b.bountyPoints || 100;
+        return bpB - bpA;
+      });
 
   if (loading) {
     return (
@@ -301,84 +312,89 @@ export const Leaderboard: React.FC = () => {
             </div>
             <div style={{ textAlign: 'right' }}>Rank</div>
           </div>
-          {sortedPlayers.map((p, i) => (
-            <div
-              key={p.id || p.uid || i}
-              className={`lb-row ${i === 0 ? 'top-1' : i === 1 ? 'top-2' : i === 2 ? 'top-3' : ''}`}
-            >
-              <div className="lb-rank" style={{ color: i < 3 ? medalColors[i] : undefined }}>
-                {i < 3 ? medals[i] : `#${i + 1}`}
-              </div>
-              <div className="lb-user">
-                <img
-                  src={normalizeAvatarUrl(p.avatarUrl, p.username)}
-                  alt={p.username}
-                  onError={e => {
-                    e.currentTarget.src = `https://ui-avatars.com/api/?background=251525&color=ff4d8d&name=${encodeURIComponent(p.username)}&bold=true`;
-                  }}
-                />
-                <div>
-                  <div className="lb-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <img
-                      src={`https://flagcdn.com/w40/${(p.countryCode || 'id').toLowerCase()}.png`}
-                      alt={p.countryCode || 'ID'}
-                      style={{ width: 20, height: 13, borderRadius: 2, objectFit: 'fill', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }}
-                      onError={e => { e.currentTarget.style.display = 'none'; }}
-                    />
-                    <span>{p.username}</span>
-                    <DevBadge username={p.username} />
-                    <BugHunterIcon username={p.username} />
-                  </div>
-                  {(() => {
-                    const ppVal = p.v4rxPp && p.v4rxPp > 0 ? p.v4rxPp : Math.max(5000, 24000 - i * 1200);
-                    const rankVal = p.v4rxRank && p.v4rxRank > 0 ? p.v4rxRank : (ppVal >= 50000 ? 2 : ppVal >= 25000 ? 14 : ppVal >= 20000 ? 25 : ppVal >= 15000 ? 81 : 120);
-                    const rawAcc = p.v4rxAccuracy && p.v4rxAccuracy > 0 && p.v4rxAccuracy < 100 ? p.v4rxAccuracy : (98.45 - (i % 6) * 0.55);
-                    const accVal = parseFloat(rawAcc.toFixed(2));
-                    const titleVal = p.title || (ppVal >= 20000 ? '🤠 Grand Marshal' : ppVal >= 15000 ? '★ Sheriff Giver' : ppVal >= 10000 ? '⚡ Master Bounty Hunter' : '🎯 Desert Marksman');
+          {sortedPlayers.map((p, i) => {
+            const playerKey = p.id || p.uid || (p.username ? p.username.trim().toLowerCase() : '');
+            const earningsRank = earningsRankMap.get(playerKey) || (i + 1);
 
-                    return (
-                      <div className="lb-sub" style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                          <Star size={9} /> #{rankVal}
-                        </span>
-                        <span style={{ margin: '0 2px', color: 'var(--text-4)' }}>·</span>
-                        <span
-                          className="mono"
-                          style={{
-                            fontSize: 10,
-                            color: filterMode === 'pp' ? '#c084fc' : undefined,
-                            fontWeight: filterMode === 'pp' ? 700 : undefined,
-                            background: filterMode === 'pp' ? 'rgba(168, 85, 247, 0.15)' : undefined,
-                            padding: filterMode === 'pp' ? '1px 5px' : undefined,
-                            borderRadius: filterMode === 'pp' ? '4px' : undefined,
-                            border: filterMode === 'pp' ? '1px solid rgba(168, 85, 247, 0.3)' : undefined,
-                          }}
-                        >
-                          {ppVal.toLocaleString()} pp {filterMode === 'pp' ? '▼' : ''}
-                        </span>
-                        <span style={{ margin: '0 2px', color: 'var(--text-4)' }}>·</span>
-                        <span>{accVal}%</span>
-                        <span style={{ marginLeft: 4 }}>{titleVal}</span>
-                      </div>
-                    );
-                  })()}
+            return (
+              <div
+                key={p.id || p.uid || i}
+                className={`lb-row ${i === 0 ? 'top-1' : i === 1 ? 'top-2' : i === 2 ? 'top-3' : ''}`}
+              >
+                <div className="lb-rank" style={{ color: i < 3 ? medalColors[i] : undefined }}>
+                  {i < 3 ? medals[i] : `#${i + 1}`}
+                </div>
+                <div className="lb-user">
+                  <img
+                    src={normalizeAvatarUrl(p.avatarUrl, p.username)}
+                    alt={p.username}
+                    onError={e => {
+                      e.currentTarget.src = `https://ui-avatars.com/api/?background=251525&color=ff4d8d&name=${encodeURIComponent(p.username)}&bold=true`;
+                    }}
+                  />
+                  <div>
+                    <div className="lb-name" style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <img
+                        src={`https://flagcdn.com/w40/${(p.countryCode || 'id').toLowerCase()}.png`}
+                        alt={p.countryCode || 'ID'}
+                        style={{ width: 20, height: 13, borderRadius: 2, objectFit: 'fill', flexShrink: 0, boxShadow: '0 1px 3px rgba(0,0,0,0.3)' }}
+                        onError={e => { e.currentTarget.style.display = 'none'; }}
+                      />
+                      <span>{p.username}</span>
+                      <DevBadge username={p.username} />
+                      <BugHunterIcon username={p.username} />
+                    </div>
+                    {(() => {
+                      const ppVal = p.v4rxPp && p.v4rxPp > 0 ? p.v4rxPp : Math.max(5000, 24000 - i * 1200);
+                      const rankVal = p.v4rxRank && p.v4rxRank > 0 ? p.v4rxRank : (ppVal >= 50000 ? 2 : ppVal >= 25000 ? 14 : ppVal >= 20000 ? 25 : ppVal >= 15000 ? 81 : 120);
+                      const rawAcc = p.v4rxAccuracy && p.v4rxAccuracy > 0 && p.v4rxAccuracy < 100 ? p.v4rxAccuracy : (98.45 - (i % 6) * 0.55);
+                      const accVal = parseFloat(rawAcc.toFixed(2));
+                      const titleVal = p.title || (ppVal >= 20000 ? '🤠 Grand Marshal' : ppVal >= 15000 ? '★ Sheriff Giver' : ppVal >= 10000 ? '⚡ Master Bounty Hunter' : '🎯 Desert Marksman');
+
+                      return (
+                        <div className="lb-sub" style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
+                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                            <Star size={9} /> #{rankVal}
+                          </span>
+                          <span style={{ margin: '0 2px', color: 'var(--text-4)' }}>·</span>
+                          <span
+                            className="mono"
+                            style={{
+                              fontSize: 10,
+                              color: filterMode === 'pp' ? '#c084fc' : undefined,
+                              fontWeight: filterMode === 'pp' ? 700 : undefined,
+                              background: filterMode === 'pp' ? 'rgba(168, 85, 247, 0.15)' : undefined,
+                              padding: filterMode === 'pp' ? '1px 5px' : undefined,
+                              borderRadius: filterMode === 'pp' ? '4px' : undefined,
+                              border: filterMode === 'pp' ? '1px solid rgba(168, 85, 247, 0.3)' : undefined,
+                            }}
+                          >
+                            {ppVal.toLocaleString()} pp {filterMode === 'pp' ? '▼' : ''}
+                          </span>
+                          <span style={{ margin: '0 2px', color: 'var(--text-4)' }}>·</span>
+                          <span>{accVal}%</span>
+                          <span style={{ marginLeft: 4 }}>{titleVal}</span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                  <Target size={12} style={{ color: 'var(--accent)' }} />
+                  <span className="lb-num">{p.bountiesClaimedCount || 0}</span>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
+                  <Coins size={13} style={{ color: 'var(--gold)' }} />
+                  <span className="lb-earn">{(p.bountyPoints || 100).toLocaleString()}</span>
+                  <span style={{ fontSize: 10, color: 'var(--text-3)' }}>BP</span>
+                </div>
+                {/* Big Square Rank Frame Box (Always based on player's fixed Earnings BP Rank) */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
+                  <CowboyRankSquareFrame bp={p.bountyPoints || 100} rank={earningsRank} size={42} />
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
-                <Target size={12} style={{ color: 'var(--accent)' }} />
-                <span className="lb-num">{p.bountiesClaimedCount || 0}</span>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 5 }}>
-                <Coins size={13} style={{ color: 'var(--gold)' }} />
-                <span className="lb-earn">{(p.bountyPoints || 100).toLocaleString()}</span>
-                <span style={{ fontSize: 10, color: 'var(--text-3)' }}>BP</span>
-              </div>
-              {/* Big Square Rank Frame Box (Right of Earnings) */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end' }}>
-                <CowboyRankSquareFrame bp={p.bountyPoints || 100} rank={i + 1} size={42} />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
