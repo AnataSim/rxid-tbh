@@ -433,13 +433,32 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
             display: 'flex', flexDirection: 'column', gap: 14,
             borderTop: '1px solid var(--border)', paddingTop: 16,
           }}>
-            {/* Bottom Primary Submit / Review Action Button */}
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+            {/* Bottom Primary Submit / Review Action Buttons */}
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
               {isGiver ? (
-                <button onClick={() => onOpenReview(bounty)} className="btn btn-primary btn-lg" style={{ width: '100%' }}>
-                  <ShieldCheck size={14} />
-                  Review Proofs ({pending.length})
-                </button>
+                bounty.isFfa && !isBanned ? (
+                  <>
+                    <button
+                      onClick={() => onOpenSubmitProof(bounty)}
+                      className="btn btn-primary btn-lg"
+                      style={{ flex: 1 }}
+                    >
+                      <Upload size={14} /> Submit Approval
+                    </button>
+                    <button
+                      onClick={() => onOpenReview(bounty)}
+                      className="btn btn-subtle btn-lg"
+                      style={{ flex: 1 }}
+                    >
+                      <ShieldCheck size={14} /> Review Proofs ({pending.length})
+                    </button>
+                  </>
+                ) : (
+                  <button onClick={() => onOpenReview(bounty)} className="btn btn-primary btn-lg" style={{ width: '100%' }}>
+                    <ShieldCheck size={14} />
+                    Review Proofs ({pending.length})
+                  </button>
+                )
               ) : (
                 <button
                   onClick={() => !isBanned && onOpenSubmitProof(bounty)}
@@ -458,7 +477,7 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
                   {isBanned ? (
                     <>
                       <UserX size={14} />
-                      Banned from this Bounty Map 🚫
+                      Banned from this Quest 🚫
                     </>
                   ) : (
                     <>

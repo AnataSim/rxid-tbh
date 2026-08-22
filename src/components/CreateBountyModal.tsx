@@ -36,6 +36,7 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [allRegisteredUsers, setAllRegisteredUsers] = useState<User[]>([]);
   const [bannedUsers, setBannedUsers] = useState<User[]>([]);
+  const [restrictSelfSubmit, setRestrictSelfSubmit] = useState(true);
 
   useEffect(() => {
     const fetchUsers = async () => {
@@ -97,6 +98,14 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
       finalRewardAmount = Number(rewardAmount) || 0;
     }
 
+    const finalBannedHunters = isFfaMode
+      ? (restrictSelfSubmit ? [currentUser.id] : [])
+      : bannedUsers.map(u => u.id);
+
+    const finalBannedUsernames = isFfaMode
+      ? (restrictSelfSubmit ? [currentUser.username] : [])
+      : bannedUsers.map(u => u.username);
+
     onCreateBounty({
       isFfa: isFfaMode,
       beatmap: metadata,
@@ -111,8 +120,8 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
       rules,
       tags: isFfaMode ? ['FFA', metadata.status.toUpperCase(), ...tags.filter(Boolean)] : [metadata.status.toUpperCase(), ...tags.filter(Boolean)],
       skillsets,
-      bannedHunters: bannedUsers.map(u => u.id),
-      bannedUsernames: bannedUsers.map(u => u.username),
+      bannedHunters: finalBannedHunters,
+      bannedUsernames: finalBannedUsernames,
       status: 'open',
       createdAt: new Date().toISOString(),
       views: 0,
@@ -488,80 +497,135 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
               />
             </div>
 
-            {/* Ban Player (Restricted Hunters) */}
-            <div className="form-group">
-              <label className="form-label" style={{ color: 'var(--red)', display: 'flex', alignItems: 'center', gap: 6 }}>
-                <UserX size={12} /> Ban Player (Restricted Hunters)
-              </label>
-              <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 6 }}>
-                Selected players cannot play or submit proof for this bounty map.
-              </div>
+            {/* Self-Participation Restriction (FFA Mode) OR Ban Player (Official Mode) */}
+            {isFfaMode ? (
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                padding: '12px 14px', borderRadius: 'var(--radius)',
+                background: restrictSelfSubmit ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-1)',
+                border: `1px solid ${restrictSelfSubmit ? 'rgba(239, 68, 68, 0.3)' : 'var(--border)'}`,
+                transition: 'all 0.2s ease',
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <div style={{
+                    padding: 6, borderRadius: 6,
+                    background: restrictSelfSubmit ? 'rgba(239, 68, 68, 0.2)' : 'var(--bg)',
+                    color: restrictSelfSubmit ? '#f87171' : 'var(--text-3)',
+                  }}>
+                    <UserX size={16} />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)' }}>
+                      Self-Participation Restriction
+                    </div>
+                    <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>
+                      {restrictSelfSubmit
+                        ? 'ON (Pembuat quest dilarang submit/join quest ini)'
+                        : 'OFF (Pembuat quest diperbolehkan submit/join quest ini)'}
+                    </div>
+                  </div>
+                </div>
 
-              {/* Selected Banned User Pills */}
-              {bannedUsers.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-                  {bannedUsers.map(u => (
-                    <span
-                      key={u.id}
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: 6,
-                        background: 'rgba(239, 68, 68, 0.15)',
-                        border: '1px solid rgba(239, 68, 68, 0.4)',
-                        color: '#f87171',
-                        borderRadius: 99,
-                        padding: '3px 10px',
-                        fontSize: 11,
-                        fontWeight: 600,
-                      }}
-                    >
-                      <UserX size={11} />
-                      {u.username}
-                      <button
-                        type="button"
-                        onClick={() => setBannedUsers(prev => prev.filter(b => b.id !== u.id))}
+                <button
+                  type="button"
+                  onClick={() => setRestrictSelfSubmit(prev => !prev)}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: 99,
+                    border: `1px solid ${restrictSelfSubmit ? '#f87171' : 'var(--border)'}`,
+                    background: restrictSelfSubmit ? 'rgba(248, 113, 113, 0.2)' : 'var(--bg)',
+                    color: restrictSelfSubmit ? '#f87171' : 'var(--text-3)',
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 6,
+                  }}
+                >
+                  <span style={{
+                    width: 8, height: 8, borderRadius: '50%',
+                    background: restrictSelfSubmit ? '#f87171' : 'var(--text-3)',
+                  }} />
+                  {restrictSelfSubmit ? 'ON' : 'OFF'}
+                </button>
+              </div>
+            ) : (
+              /* Ban Player (Restricted Hunters) for Official Quests */
+              <div className="form-group">
+                <label className="form-label" style={{ color: 'var(--red)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <UserX size={12} /> Ban Player (Restricted Hunters)
+                </label>
+                <div style={{ fontSize: 11, color: 'var(--text-3)', marginBottom: 6 }}>
+                  Selected players cannot play or submit proof for this bounty map.
+                </div>
+
+                {/* Selected Banned User Pills */}
+                {bannedUsers.length > 0 && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                    {bannedUsers.map(u => (
+                      <span
+                        key={u.id}
                         style={{
-                          background: 'none',
-                          border: 'none',
-                          color: '#f87171',
-                          cursor: 'pointer',
-                          padding: 0,
-                          display: 'flex',
+                          display: 'inline-flex',
                           alignItems: 'center',
+                          gap: 6,
+                          background: 'rgba(239, 68, 68, 0.15)',
+                          border: '1px solid rgba(239, 68, 68, 0.4)',
+                          color: '#f87171',
+                          borderRadius: 99,
+                          padding: '3px 10px',
+                          fontSize: 11,
+                          fontWeight: 600,
                         }}
                       >
-                        <X size={12} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
+                        <UserX size={11} />
+                        {u.username}
+                        <button
+                          type="button"
+                          onClick={() => setBannedUsers(prev => prev.filter(b => b.id !== u.id))}
+                          style={{
+                            background: 'none',
+                            border: 'none',
+                            color: '#f87171',
+                            cursor: 'pointer',
+                            padding: 0,
+                            display: 'flex',
+                            alignItems: 'center',
+                          }}
+                        >
+                          <X size={12} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
 
-              {/* Selector Dropdown */}
-              <select
-                className="form-input"
-                style={{ fontSize: 12 }}
-                onChange={e => {
-                  const selectedId = e.target.value;
-                  if (!selectedId) return;
-                  const targetUser = allRegisteredUsers.find(u => u.id === selectedId);
-                  if (targetUser && !bannedUsers.some(b => b.id === targetUser.id)) {
-                    setBannedUsers(prev => [...prev, targetUser]);
-                  }
-                  e.target.value = '';
-                }}
-              >
-                <option value="">+ Pick a user to ban from this bounty...</option>
-                {allRegisteredUsers
-                  .filter(u => u.id !== currentUser.id && !bannedUsers.some(b => b.id === u.id))
-                  .map(u => (
-                    <option key={u.id} value={u.id}>
-                      {u.username} ({u.bountyPoints || 100} BP)
-                    </option>
-                  ))}
-              </select>
-            </div>
+                {/* Selector Dropdown */}
+                <select
+                  className="form-input"
+                  style={{ fontSize: 12 }}
+                  onChange={e => {
+                    const selectedId = e.target.value;
+                    if (!selectedId) return;
+                    const targetUser = allRegisteredUsers.find(u => u.id === selectedId);
+                    if (targetUser && !bannedUsers.some(b => b.id === targetUser.id)) {
+                      setBannedUsers(prev => [...prev, targetUser]);
+                    }
+                    e.target.value = '';
+                  }}
+                >
+                  <option value="">+ Pick a user to ban from this bounty...</option>
+                  {allRegisteredUsers
+                    .filter(u => u.id !== currentUser.id && !bannedUsers.some(b => b.id === u.id))
+                    .map(u => (
+                      <option key={u.id} value={u.id}>
+                        {u.username} ({u.bountyPoints || 100} BP)
+                      </option>
+                    ))}
+                </select>
+              </div>
+            )}
           </div>
 
           <div className="modal-footer">
