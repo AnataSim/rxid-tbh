@@ -13,10 +13,11 @@ interface NavbarProps {
   onOpenCreateModal: () => void;
   onToggleFriends?: () => void;
   friendsOpen?: boolean;
+  bountySection?: 'official' | 'ffa';
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
-  activeTab, setActiveTab, onOpenCreateModal, onToggleFriends, friendsOpen,
+  activeTab, setActiveTab, onOpenCreateModal, onToggleFriends, friendsOpen, bountySection = 'official',
 }) => {
   const { currentUser, logout, activeRole } = useAuth();
   const { equippedRankTier } = useCosmetics();
@@ -79,12 +80,12 @@ export const Navbar: React.FC<NavbarProps> = ({
         {/* Right */}
         <div className="nav-right" style={{ gap: 10 }}>
 
-          {/* Post Bounty (Icon Only) */}
-          {isGiver && (
+          {/* Post Bounty (Icon Only - Official or FFA depending on section) */}
+          {(isGiver || bountySection === 'ffa') && (
             <button
               onClick={onOpenCreateModal}
               className="btn btn-primary"
-              title="Post Bounty"
+              title={bountySection === 'ffa' ? 'Post FFA Quest' : 'Post Official Bounty'}
               style={{
                 width: 34,
                 height: 34,

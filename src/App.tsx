@@ -293,6 +293,7 @@ export function AppContent() {
         onOpenCreateModal={() => setIsCreateOpen(true)}
         onToggleFriends={() => setFriendsOpen(v => !v)}
         friendsOpen={friendsOpen}
+        bountySection={bountySection}
       />
 
       <div className="page-wrap">
