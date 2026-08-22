@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import type { Bounty, Submission } from '../types/bounty';
-import { X, CheckCircle, XCircle, ExternalLink, ShieldCheck, Coins, FileText, CheckCircle2, AlertOctagon } from 'lucide-react';
+import { X, CheckCircle, XCircle, ExternalLink, ShieldCheck, Coins, FileText, CheckCircle2, AlertOctagon, Sparkles } from 'lucide-react';
 
 interface ReviewSubmissionModalProps {
   bounty: Bounty;
   onClose: () => void;
-  onApprove: (bountyId: string, subId: string, hunterId?: string, beatmapTitle?: string, rewardAmount?: number, selectedTier?: 1 | 2) => void;
+  onApprove: (bountyId: string, subId: string, hunterId?: string, beatmapTitle?: string, rewardAmount?: number, selectedTier?: 1 | 2, poa?: number) => void;
   onReject: (bountyId: string, subId: string, reason: string, hunterId?: string, beatmapTitle?: string) => void;
   onDeleteSubmission?: (bountyId: string, subId: string) => void;
 }
@@ -19,6 +19,9 @@ export const ReviewSubmissionModal: React.FC<ReviewSubmissionModalProps> = ({
   const [localStatusMap, setLocalStatusMap] = useState<Record<string, 'approved' | 'rejected'>>({});
   const [deletedIds, setDeletedIds]         = useState<Set<string>>(new Set());
   const [logImagePreview, setLogImagePreview] = useState<string | null>(null);
+
+  // PoA (Point of Appreciation) bonus map per submission ID
+  const [poaMap, setPoaMap] = useState<Record<string, string>>({});
 
   const handleDelete = (subId: string) => {
     setDeletedIds(prev => new Set(prev).add(subId));
@@ -42,8 +45,9 @@ export const ReviewSubmissionModal: React.FC<ReviewSubmissionModalProps> = ({
 
   const handleConfirmApprove = (sub: Submission, selectedTier?: 1 | 2, tierAmount?: number) => {
     setLocalStatusMap(prev => ({ ...prev, [sub.id]: 'approved' }));
-    const finalReward = tierAmount !== undefined ? tierAmount : bounty.reward.amount;
-    onApprove(bounty.id, sub.id, sub.hunterId, bounty.beatmap.title, finalReward, selectedTier);
+    const baseReward = tierAmount !== undefined ? tierAmount : bounty.reward.amount;
+    const poaVal = Number(poaMap[sub.id]) || 0;
+    onApprove(bounty.id, sub.id, sub.hunterId, bounty.beatmap.title, baseReward, selectedTier, poaVal);
   };
 
   const handleConfirmReject = (sub: Submission, rejectReason: string) => {
@@ -124,214 +128,251 @@ export const ReviewSubmissionModal: React.FC<ReviewSubmissionModalProps> = ({
                 </div>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                  {pending.map(sub => (
-                    <div key={sub.id} className="anim-in" style={{
-                      border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)',
-                      overflow: 'hidden', background: 'var(--bg)',
-                    }}>
-                      {/* Sub header */}
-                      <div style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        padding: '12px 14px', borderBottom: '1px solid var(--border)',
+                  {pending.map(sub => {
+                    const currentPoa = Number(poaMap[sub.id]) || 0;
+                    const rbpTier1 = (bounty.rewardTier1 ?? 100) + currentPoa;
+                    const rbpTier2 = (bounty.rewardTier2 ?? 150) + currentPoa;
+                    const rbpSingle = bounty.reward.amount + currentPoa;
+
+                    return (
+                      <div key={sub.id} className="anim-in" style={{
+                        border: '1px solid var(--border)', borderRadius: 'var(--radius-lg)',
+                        overflow: 'hidden', background: 'var(--bg)',
                       }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <img src={sub.hunterAvatar} alt={sub.hunterUsername}
-                            style={{ width: 34, height: 34, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border)' }}
-                          />
-                          <div>
-                            <div style={{ fontSize: 13, fontWeight: 600 }}>{sub.hunterUsername}</div>
-                            <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>
-                              {new Date(sub.submittedAt).toLocaleString()}
+                        {/* Sub header */}
+                        <div style={{
+                          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                          padding: '12px 14px', borderBottom: '1px solid var(--border)',
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <img src={sub.hunterAvatar} alt={sub.hunterUsername}
+                              style={{ width: 34, height: 34, borderRadius: 8, objectFit: 'cover', border: '1px solid var(--border)' }}
+                            />
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 600 }}>{sub.hunterUsername}</div>
+                              <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>
+                                {new Date(sub.submittedAt).toLocaleString()}
+                              </div>
                             </div>
                           </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <span className="sub-status sub-status-pending">Pending</span>
-                          {onDeleteSubmission && (
-                            <button
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                e.preventDefault();
-                                handleDelete(sub.id);
-                              }}
-                              style={{
-                                background: 'rgba(239, 68, 68, 0.15)',
-                                border: '1px solid rgba(239, 68, 68, 0.4)',
-                                color: 'var(--red)',
-                                cursor: 'pointer', padding: '3px 6px', borderRadius: 4, display: 'flex',
-                              }}
-                              title="Delete submission"
-                            >
-                              <X size={12} />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-
-                      {/* Comment */}
-                      {sub.comment && (
-                        <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', fontSize: 12, color: 'var(--text-3)' }}>
-                          "{sub.comment}"
-                        </div>
-                      )}
-
-                      {/* Image Preview */}
-                      <a
-                        href={sub.proofImageUrl} target="_blank" rel="noopener noreferrer"
-                        style={{ display: 'block', position: 'relative', overflow: 'hidden' }}
-                      >
-                        <img src={sub.proofImageUrl} alt="Proof"
-                          style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block', transition: 'transform 0.3s' }}
-                          onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
-                          onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
-                        />
-                        <div style={{
-                          position: 'absolute', bottom: 8, right: 8,
-                          display: 'flex', alignItems: 'center', gap: 4,
-                          padding: '3px 8px', borderRadius: 4,
-                          background: 'rgba(0,0,0,0.65)', fontSize: 10, color: '#aaa',
-                        }}>
-                          Open full <ExternalLink size={9} />
-                        </div>
-                      </a>
-
-                      {/* Replay Link */}
-                      {sub.replayUrl && (
-                        <div style={{ padding: '8px 14px', borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--text-3)' }}>
-                          Replay:{' '}
-                          <a href={sub.replayUrl} target="_blank" rel="noopener noreferrer"
-                            style={{ color: 'var(--blue)', textDecoration: 'underline', fontFamily: 'var(--mono)' }}>
-                            {sub.replayUrl}
-                          </a>
-                        </div>
-                      )}
-
-                      {/* Reject Form / Approve Actions */}
-                      {rejectId === sub.id ? (
-                        <div style={{
-                          padding: '12px 14px', borderTop: '1px solid var(--border)',
-                          background: 'var(--red-dim)', display: 'flex', flexDirection: 'column', gap: 8,
-                        }}>
-                          <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--red)' }}>Rejection reason:</label>
-                          <input
-                            type="text" value={reason} onChange={e => setReason(e.target.value)}
-                            placeholder="e.g. Accuracy below 98.5%…"
-                            className="form-input" style={{ fontSize: 12 }}
-                          />
-                          <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
-                            <button className="btn btn-ghost btn-sm" onClick={() => setRejectId(null)}>Cancel</button>
-                            <button
-                              className="btn btn-danger btn-sm"
-                              onClick={() => {
-                                handleConfirmReject(sub, reason || 'Did not meet requirements');
-                                setRejectId(null); setReason('');
-                              }}
-                            >
-                              <XCircle size={12} /> Confirm Reject
-                            </button>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <span className="sub-status sub-status-pending">Pending</span>
+                            {onDeleteSubmission && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  e.preventDefault();
+                                  handleDelete(sub.id);
+                                }}
+                                style={{
+                                  background: 'rgba(239, 68, 68, 0.15)',
+                                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                                  color: 'var(--red)',
+                                  cursor: 'pointer', padding: '3px 6px', borderRadius: 4, display: 'flex',
+                                }}
+                                title="Delete submission"
+                              >
+                                <X size={12} />
+                              </button>
+                            )}
                           </div>
                         </div>
-                      ) : (
-                        <div style={{
-                          display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px',
-                          borderTop: '1px solid var(--border)',
-                        }}>
-                          {bounty.isDualReward ? (
-                            /* DUAL APPROVAL BUTTONS (RED VS GREEN) */
-                            <div style={{ display: 'flex', gap: 8 }}>
-                              {/* RED TIER BUTTON */}
-                              <button
-                                type="button"
-                                className="btn"
-                                style={{
-                                  flex: 1,
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  padding: '8px 10px',
-                                  background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.35))',
-                                  border: '1px solid rgba(239, 68, 68, 0.6)',
-                                  color: '#ffffff',
-                                  borderRadius: 'var(--radius)',
-                                  cursor: 'pointer',
-                                }}
-                                onClick={() => handleConfirmApprove(sub, 1, bounty.rewardTier1 || 100)}
-                                title={bounty.instructionTier1 ? `Instruksi Merah: ${bounty.instructionTier1}` : 'Approve Tier 1'}
-                              >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700 }}>
-                                  <CheckCircle size={14} color="#f87171" />
-                                  Approve Merah ({(bounty.rewardTier1 ?? 100).toLocaleString()} BP)
-                                </div>
-                                {bounty.instructionTier1 && (
-                                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
-                                    "{bounty.instructionTier1}"
-                                  </div>
-                                )}
-                              </button>
 
-                              {/* GREEN TIER BUTTON */}
-                              <button
-                                type="button"
-                                className="btn"
-                                style={{
-                                  flex: 1,
-                                  display: 'flex',
-                                  flexDirection: 'column',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  padding: '8px 10px',
-                                  background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.35))',
-                                  border: '1px solid rgba(34, 197, 94, 0.6)',
-                                  color: '#ffffff',
-                                  borderRadius: 'var(--radius)',
-                                  cursor: 'pointer',
-                                }}
-                                onClick={() => handleConfirmApprove(sub, 2, bounty.rewardTier2 || 150)}
-                                title={bounty.instructionTier2 ? `Instruksi Hijau: ${bounty.instructionTier2}` : 'Approve Tier 2'}
-                              >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700 }}>
-                                  <CheckCircle size={14} color="#4ade80" />
-                                  Approve Hijau ({(bounty.rewardTier2 ?? 150).toLocaleString()} BP)
-                                </div>
-                                {bounty.instructionTier2 && (
-                                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
-                                    "{bounty.instructionTier2}"
-                                  </div>
-                                )}
-                              </button>
+                        {/* Comment */}
+                        {sub.comment && (
+                          <div style={{ padding: '10px 14px', borderBottom: '1px solid var(--border)', fontSize: 12, color: 'var(--text-3)' }}>
+                            "{sub.comment}"
+                          </div>
+                        )}
 
-                              {/* REJECT BUTTON */}
+                        {/* Image Preview */}
+                        <a
+                          href={sub.proofImageUrl} target="_blank" rel="noopener noreferrer"
+                          style={{ display: 'block', position: 'relative', overflow: 'hidden' }}
+                        >
+                          <img src={sub.proofImageUrl} alt="Proof"
+                            style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block', transition: 'transform 0.3s' }}
+                            onMouseEnter={e => (e.currentTarget.style.transform = 'scale(1.02)')}
+                            onMouseLeave={e => (e.currentTarget.style.transform = 'scale(1)')}
+                          />
+                          <div style={{
+                            position: 'absolute', bottom: 8, right: 8,
+                            display: 'flex', alignItems: 'center', gap: 4,
+                            padding: '3px 8px', borderRadius: 4,
+                            background: 'rgba(0,0,0,0.65)', fontSize: 10, color: '#aaa',
+                          }}>
+                            Open full <ExternalLink size={9} />
+                          </div>
+                        </a>
+
+                        {/* Replay Link */}
+                        {sub.replayUrl && (
+                          <div style={{ padding: '8px 14px', borderTop: '1px solid var(--border)', fontSize: 11, color: 'var(--text-3)' }}>
+                            Replay:{' '}
+                            <a href={sub.replayUrl} target="_blank" rel="noopener noreferrer"
+                              style={{ color: 'var(--blue)', textDecoration: 'underline', fontFamily: 'var(--mono)' }}>
+                              {sub.replayUrl}
+                            </a>
+                          </div>
+                        )}
+
+                        {/* Reject Form / Approve Actions */}
+                        {rejectId === sub.id ? (
+                          <div style={{
+                            padding: '12px 14px', borderTop: '1px solid var(--border)',
+                            background: 'var(--red-dim)', display: 'flex', flexDirection: 'column', gap: 8,
+                          }}>
+                            <label style={{ fontSize: 11, fontWeight: 600, color: 'var(--red)' }}>Rejection reason:</label>
+                            <input
+                              type="text" value={reason} onChange={e => setReason(e.target.value)}
+                              placeholder="e.g. Accuracy below 98.5%…"
+                              className="form-input" style={{ fontSize: 12 }}
+                            />
+                            <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end' }}>
+                              <button className="btn btn-ghost btn-sm" onClick={() => setRejectId(null)}>Cancel</button>
                               <button
-                                type="button"
                                 className="btn btn-danger btn-sm"
-                                style={{ flexShrink: 0 }}
-                                onClick={() => setRejectId(sub.id)}
+                                onClick={() => {
+                                  handleConfirmReject(sub, reason || 'Did not meet requirements');
+                                  setRejectId(null); setReason('');
+                                }}
                               >
-                                <XCircle size={13} /> Reject
+                                <XCircle size={12} /> Confirm Reject
                               </button>
                             </div>
-                          ) : (
-                            /* SINGLE TIER APPROVAL BUTTON */
-                            <div style={{ display: 'flex', gap: 8 }}>
-                              <button
-                                className="btn btn-success"
-                                style={{ flex: 1, fontSize: 13 }}
-                                onClick={() => handleConfirmApprove(sub)}
-                              >
-                                <CheckCircle size={14} />
-                                Approve & Pay {bounty.reward.amount.toLocaleString()} {bounty.reward.currency}
-                              </button>
-                              <button className="btn btn-danger btn-sm" onClick={() => setRejectId(sub.id)}>
-                                <XCircle size={13} /> Reject
-                              </button>
+                          </div>
+                        ) : (
+                          <div style={{
+                            display: 'flex', flexDirection: 'column', gap: 10, padding: '12px 14px',
+                            borderTop: '1px solid var(--border)',
+                          }}>
+                            {/* Point of Appreciation (PoA) Input Field */}
+                            <div style={{
+                              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                              padding: '8px 12px', background: 'rgba(234, 179, 8, 0.08)',
+                              border: '1px solid rgba(234, 179, 8, 0.3)', borderRadius: 'var(--radius)',
+                            }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, color: 'var(--gold)' }}>
+                                <Sparkles size={13} />
+                                Point of Appreciation (PoA)
+                                <span style={{ fontSize: 10, color: 'var(--text-3)', fontWeight: 400 }}>(Optional Bonus BP)</span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <span style={{ fontSize: 12, fontWeight: 800, color: 'var(--gold)' }}>+</span>
+                                <input
+                                  type="text"
+                                  inputMode="numeric"
+                                  value={poaMap[sub.id] || ''}
+                                  onChange={e => {
+                                    const val = e.target.value.replace(/[^\d]/g, '');
+                                    setPoaMap(prev => ({ ...prev, [sub.id]: val }));
+                                  }}
+                                  placeholder="0"
+                                  className="form-input mono"
+                                  style={{
+                                    width: 64, padding: '3px 6px', fontSize: 12, height: 26,
+                                    textAlign: 'center', color: 'var(--gold)', fontWeight: 800,
+                                    borderColor: currentPoa > 0 ? 'var(--gold)' : undefined,
+                                  }}
+                                />
+                                <span style={{ fontSize: 11, fontWeight: 800, color: 'var(--gold)' }}>BP</span>
+                              </div>
                             </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  ))}
+
+                            {bounty.isDualReward ? (
+                              /* DUAL APPROVAL BUTTONS (RED VS GREEN) */
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                {/* RED TIER BUTTON */}
+                                <button
+                                  type="button"
+                                  className="btn"
+                                  style={{
+                                    flex: 1,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: '8px 10px',
+                                    background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.35))',
+                                    border: '1px solid rgba(239, 68, 68, 0.6)',
+                                    color: '#ffffff',
+                                    borderRadius: 'var(--radius)',
+                                    cursor: 'pointer',
+                                  }}
+                                  onClick={() => handleConfirmApprove(sub, 1, bounty.rewardTier1 || 100)}
+                                  title={bounty.instructionTier1 ? `Instruksi Merah: ${bounty.instructionTier1}` : 'Approve Tier 1'}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700 }}>
+                                    <CheckCircle size={14} color="#f87171" />
+                                    Approve Merah ({rbpTier1.toLocaleString()} BP)
+                                  </div>
+                                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                                    {currentPoa > 0 ? `(Base ${bounty.rewardTier1 ?? 100} + ${currentPoa} PoA)` : `"${bounty.instructionTier1 || 'Tier 1'}"`}
+                                  </div>
+                                </button>
+
+                                {/* GREEN TIER BUTTON */}
+                                <button
+                                  type="button"
+                                  className="btn"
+                                  style={{
+                                    flex: 1,
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    padding: '8px 10px',
+                                    background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.35))',
+                                    border: '1px solid rgba(34, 197, 94, 0.6)',
+                                    color: '#ffffff',
+                                    borderRadius: 'var(--radius)',
+                                    cursor: 'pointer',
+                                  }}
+                                  onClick={() => handleConfirmApprove(sub, 2, bounty.rewardTier2 || 150)}
+                                  title={bounty.instructionTier2 ? `Instruksi Hijau: ${bounty.instructionTier2}` : 'Approve Tier 2'}
+                                >
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700 }}>
+                                    <CheckCircle size={14} color="#4ade80" />
+                                    Approve Hijau ({rbpTier2.toLocaleString()} BP)
+                                  </div>
+                                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                                    {currentPoa > 0 ? `(Base ${bounty.rewardTier2 ?? 150} + ${currentPoa} PoA)` : `"${bounty.instructionTier2 || 'Tier 2'}"`}
+                                  </div>
+                                </button>
+
+                                {/* REJECT BUTTON */}
+                                <button
+                                  type="button"
+                                  className="btn btn-danger btn-sm"
+                                  style={{ flexShrink: 0 }}
+                                  onClick={() => setRejectId(sub.id)}
+                                >
+                                  <XCircle size={13} /> Reject
+                                </button>
+                              </div>
+                            ) : (
+                              /* SINGLE TIER APPROVAL BUTTON */
+                              <div style={{ display: 'flex', gap: 8 }}>
+                                <button
+                                  className="btn btn-success"
+                                  style={{ flex: 1, fontSize: 13 }}
+                                  onClick={() => handleConfirmApprove(sub)}
+                                >
+                                  <CheckCircle size={14} />
+                                  Approve & Pay {rbpSingle.toLocaleString()} BP
+                                  {currentPoa > 0 ? ` (${bounty.reward.amount} + ${currentPoa} PoA)` : ''}
+                                </button>
+                                <button className="btn btn-danger btn-sm" onClick={() => setRejectId(sub.id)}>
+                                  <XCircle size={13} /> Reject
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -384,7 +425,9 @@ export const ReviewSubmissionModal: React.FC<ReviewSubmissionModalProps> = ({
                                 <CheckCircle2 size={11} /> Approved
                                 {sub.awardedTier === 1 && <span style={{ color: '#f87171', fontWeight: 800 }}>(Merah)</span>}
                                 {sub.awardedTier === 2 && <span style={{ color: '#4ade80', fontWeight: 800 }}>(Hijau)</span>}
-                                (+{sub.awardedBp !== undefined ? sub.awardedBp : bounty.reward.amount} {bounty.reward.currency}{sub.bpMultiplier !== undefined && sub.bpMultiplier !== 1.0 ? ` [${sub.bpMultiplier}x]` : ''})
+                                (+{sub.awardedBp !== undefined ? sub.awardedBp : bounty.reward.amount} {bounty.reward.currency}
+                                {sub.bpMultiplier !== undefined && sub.bpMultiplier !== 1.0 ? ` [${sub.bpMultiplier}x]` : ''}
+                                {sub.poa !== undefined && sub.poa > 0 ? ` +${sub.poa} PoA ✨` : ''})
                               </span>
                             ) : (
                               <span className="sub-status sub-status-rejected" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>

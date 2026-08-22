@@ -169,10 +169,15 @@ export function getBpMultiplier(currentBp: number = 100): number {
   return Number(mult.toFixed(2));
 }
 
-export function calculateAwardedBp(baseReward: number, currentBp: number = 100): { awardedBp: number; multiplier: number } {
+export function calculateAwardedBp(
+  baseReward: number,
+  currentBp: number = 100,
+  poa: number = 0
+): { awardedBp: number; multiplier: number; totalBaseRbp: number } {
   const multiplier = getBpMultiplier(currentBp);
-  const awardedBp = Math.round(baseReward * multiplier);
-  return { awardedBp, multiplier };
+  const totalBaseRbp = baseReward + (poa || 0);
+  const awardedBp = Math.round(totalBaseRbp * multiplier);
+  return { awardedBp, multiplier, totalBaseRbp };
 }
 
 /**
@@ -269,7 +274,8 @@ export async function approveSubmission(
   hunterId?: string,
   beatmapTitle?: string,
   rewardAmount?: number,
-  selectedTier?: 1 | 2
+  selectedTier?: 1 | 2,
+  poa: number = 0
 ): Promise<void> {
   const baseReward = rewardAmount || 100;
   let amountToAward = baseReward;
@@ -316,13 +322,16 @@ export async function approveSubmission(
     }
   }
 
-  // 3. Calculate awarded BP using hunter's current BP
+  // 3. Calculate awarded BP using hunter's current BP and PoA
   if (userSnap && userSnap.exists()) {
     const userData = userSnap.data() as User;
     const currentBp = userData.bountyPoints || 100;
-    const calc = calculateAwardedBp(baseReward, currentBp);
+    const calc = calculateAwardedBp(baseReward, currentBp, poa);
     amountToAward = calc.awardedBp;
     activeMultiplier = calc.multiplier;
+  } else {
+    // Default fallback calculation if user profile not loaded yet
+    amountToAward = Math.round((baseReward + (poa || 0)) * 1.5);
   }
 
   // 4. Update Submission doc
@@ -331,6 +340,7 @@ export async function approveSubmission(
     awardedBp: amountToAward,
     bpMultiplier: activeMultiplier,
     ...(selectedTier ? { awardedTier: selectedTier } : {}),
+    ...(poa > 0 ? { poa } : {}),
   });
 
   // 5. Update parent Bounty doc
@@ -349,12 +359,13 @@ export async function approveSubmission(
       lastBpUpdatedAtServer: serverTimestamp(),
     });
 
+    const poaNote = poa > 0 ? ` (includes +${poa} PoA appreciation bonus ✨)` : '';
     const multiplierNote = activeMultiplier !== 1.0 ? ` (${activeMultiplier}x multiplier)` : '';
     sendNotification({
       userId: finalHunterId || userSnap.id,
       type: 'proof_approved',
       title: '🎉 Quest Cleared! (Approved)',
-      message: `Your proof for ${beatmapTitle || 'the bounty'} was approved! You earned +${amountToAward} BP!${multiplierNote}`,
+      message: `Your proof for ${beatmapTitle || 'the bounty'} was approved! You earned +${amountToAward} BP!${poaNote}${multiplierNote}`,
       bountyId,
     }).catch(() => {});
   }

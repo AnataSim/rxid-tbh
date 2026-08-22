@@ -149,12 +149,12 @@ export function AppContent() {
   };
 
   const handleApprove = async (
-    bountyId: string, subId: string, hunterId?: string, beatmapTitle?: string, rewardAmount?: number, selectedTier?: 1 | 2
+    bountyId: string, subId: string, hunterId?: string, beatmapTitle?: string, rewardAmount?: number, selectedTier?: 1 | 2, poa?: number
   ) => {
-    await approveSubmission(bountyId, subId, hunterId, beatmapTitle, rewardAmount, selectedTier);
+    await approveSubmission(bountyId, subId, hunterId, beatmapTitle, rewardAmount, selectedTier, poa || 0);
     const tierLabel = selectedTier === 1 ? ' [Tier 1 Merah]' : selectedTier === 2 ? ' [Tier 2 Hijau]' : '';
-    const amountStr = rewardAmount ? `+${rewardAmount} BP` : 'Paid!';
-    addToast(`Submission Approved${tierLabel} & Paid ${amountStr}! 💰`, 'success');
+    const poaLabel = poa && poa > 0 ? ` (+${poa} PoA ✨)` : '';
+    addToast(`Submission Approved${tierLabel}${poaLabel}! 💰`, 'success');
   };
 
   const handleReject = async (bountyId: string, subId: string, reason: string, hunterId?: string, beatmapTitle?: string) => {

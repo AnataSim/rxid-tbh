@@ -58,6 +58,7 @@ export interface Submission {
   awardedBp?: number;
   bpMultiplier?: number;
   awardedTier?: 1 | 2;
+  poa?: number;
 }
 
 export interface Bounty {
