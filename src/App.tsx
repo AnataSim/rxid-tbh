@@ -32,8 +32,11 @@ import { CowboyRankSquareFrame } from './components/CowboyRankBadge';
 import {
   Search, Plus, Trophy, Coins, CheckCircle2, Target,
   SlidersHorizontal, Loader2, Globe, Download, ShieldCheck,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
 } from 'lucide-react';
 import { cacheService } from './services/cacheService';
+
+const ITEMS_PER_PAGE = 8;
 import { SecurityBadgeModal } from './components/SecurityBadgeModal';
 
 import { collection, query, orderBy, limit, getDocs } from 'firebase/firestore';
@@ -66,8 +69,13 @@ export function AppContent() {
   const [activeTab, setActiveTab]     = useState<'bounties' | 'leaderboard' | 'titles' | 'rules'>('bounties');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [currentPage, setCurrentPage]   = useState<number>(1);
   const [currentUserRank, setCurrentUserRank] = useState<number | undefined>(undefined);
   const [toasts, setToasts]           = useState<ToastMessage[]>([]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter]);
 
   const [selectedBounty, setSelectedBounty]   = useState<Bounty | null>(null);
   const [isCreateOpen, setIsCreateOpen]        = useState(false);
@@ -187,6 +195,15 @@ export function AppContent() {
 
   // ── Filtering ─────────────────────────────────────────────────────────────
 
+  const getTime = (dateVal: any) => {
+    if (!dateVal) return 0;
+    if (typeof dateVal === 'string') return new Date(dateVal).getTime() || 0;
+    if (typeof dateVal === 'number') return dateVal;
+    if (dateVal.seconds) return dateVal.seconds * 1000;
+    if (dateVal.toDate && typeof dateVal.toDate === 'function') return dateVal.toDate().getTime();
+    return 0;
+  };
+
   const filtered = bounties.filter(b => {
     const q = searchQuery.toLowerCase();
     const match =
@@ -196,12 +213,21 @@ export function AppContent() {
       b.giver.username.toLowerCase().includes(q) ||
       b.tags.some(t => t.toLowerCase().includes(q));
     if (!match) return false;
-    if (statusFilter === 'open')      return b.status === 'open';
     if (statusFilter === 'completed') return b.status === 'completed';
-    if (statusFilter === 'Ranked')    return b.beatmap.status === 'Ranked';
-    if (statusFilter === 'Loved')     return b.beatmap.status === 'Loved';
     return true;
+  }).sort((a, b) => {
+    const timeA = getTime(a.createdAt);
+    const timeB = getTime(b.createdAt);
+    if (statusFilter === 'oldest') {
+      return timeA - timeB; // Ascending (oldest first)
+    }
+    return timeB - timeA; // Descending (newest first for 'all', 'completed', 'newest')
   });
+
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE) || 1;
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
+  const paginatedBounties = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const pool      = bounties.reduce((s, b) => s + b.reward.amount, 0);
   const openCount = bounties.filter(b => b.status === 'open').length;
@@ -209,10 +235,9 @@ export function AppContent() {
 
   const FILTERS = [
     { id: 'all',       label: 'All' },
-    { id: 'open',      label: 'Open' },
     { id: 'completed', label: 'Completed' },
-    { id: 'Ranked',    label: 'Ranked' },
-    { id: 'Loved',     label: 'Loved' },
+    { id: 'newest',    label: 'Newest' },
+    { id: 'oldest',    label: 'Oldest' },
   ];
 
   // ── Auth gate ─────────────────────────────────────────────────────────────
@@ -479,11 +504,81 @@ export function AppContent() {
                     )}
                   </div>
                 ) : (
-                  <div className="cards-grid">
-                    {filtered.map(b => (
-                      <BountyCard key={b.id} bounty={b} onSelect={setSelectedBounty} />
-                    ))}
-                  </div>
+                  <>
+                    <div className="cards-grid">
+                      {paginatedBounties.map(b => (
+                        <BountyCard key={b.id} bounty={b} onSelect={setSelectedBounty} />
+                      ))}
+                    </div>
+
+                    {filtered.length > ITEMS_PER_PAGE && (
+                      <div className="pagination-wrap">
+                        <div className="pagination-info">
+                          Showing <strong>{startIndex + 1}</strong> – <strong>{Math.min(startIndex + ITEMS_PER_PAGE, filtered.length)}</strong> of <strong>{filtered.length}</strong> bounties
+                        </div>
+                        <div className="pagination-controls">
+                          <button
+                            className="pagination-btn"
+                            disabled={safeCurrentPage === 1}
+                            onClick={() => {
+                              setCurrentPage(1);
+                              window.scrollTo({ top: 300, behavior: 'smooth' });
+                            }}
+                            title="First Page"
+                          >
+                            <ChevronsLeft size={15} />
+                          </button>
+                          <button
+                            className="pagination-btn"
+                            disabled={safeCurrentPage === 1}
+                            onClick={() => {
+                              setCurrentPage(prev => Math.max(1, prev - 1));
+                              window.scrollTo({ top: 300, behavior: 'smooth' });
+                            }}
+                            title="Previous Page"
+                          >
+                            <ChevronLeft size={15} />
+                          </button>
+
+                          {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                            <button
+                              key={page}
+                              className={`pagination-btn ${page === safeCurrentPage ? 'active' : ''}`}
+                              onClick={() => {
+                                setCurrentPage(page);
+                                window.scrollTo({ top: 300, behavior: 'smooth' });
+                              }}
+                            >
+                              {page}
+                            </button>
+                          ))}
+
+                          <button
+                            className="pagination-btn"
+                            disabled={safeCurrentPage === totalPages}
+                            onClick={() => {
+                              setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                              window.scrollTo({ top: 300, behavior: 'smooth' });
+                            }}
+                            title="Next Page"
+                          >
+                            <ChevronRight size={15} />
+                          </button>
+                          <button
+                            className="pagination-btn"
+                            disabled={safeCurrentPage === totalPages}
+                            onClick={() => {
+                              setCurrentPage(totalPages);
+                              window.scrollTo({ top: 300, behavior: 'smooth' });
+                            }}
+                            title="Last Page"
+                          >
+                            <ChevronsRight size={15} />
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
