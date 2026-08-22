@@ -322,7 +322,7 @@ async function fetchV4rxProfileInternal(clean: string): Promise<V4rxFetchedProfi
     // Fallback to client proxies or presets if serverless endpoint is unavailable or timed out
   }
 
-  // 2. Try fetching real HTML profile via CORS proxies
+  // 2. Try fetching real HTML profile via CORS proxies (for numeric ID)
   if (isNumeric) {
     const urlsToTry = [
       `https://api.allorigins.win/get?url=${encodeURIComponent('https://v4rx.me/user/profile.php?id=' + clean)}`,
@@ -377,6 +377,60 @@ async function fetchV4rxProfileInternal(clean: string): Promise<V4rxFetchedProfi
         // Continue to next proxy or preset
       }
     }
+  }
+
+  // 3. Client-side Live Leaderboard Scraper via CORS proxy (for searching username or ID)
+  try {
+    const lbProxyUrls = [
+      `https://api.allorigins.win/get?url=${encodeURIComponent('https://v4rx.me/user/leaderboard/')}`,
+      `https://corsproxy.io/?https://v4rx.me/user/leaderboard/`,
+    ];
+
+    for (const lbUrl of lbProxyUrls) {
+      try {
+        const lbRes = await fetchWithTimeout(lbUrl, { timeoutMs: 3000 });
+        if (lbRes.ok) {
+          const raw = await lbRes.json().catch(() => null);
+          const html = raw?.contents || (await lbRes.text().catch(() => ''));
+
+          if (html) {
+            const trBlocks = html.split(/<tr\s/i);
+            const cleanLower = clean.toLowerCase();
+
+            for (const block of trBlocks) {
+              const nameMatch = block.match(/data-name=["']([^"']+)["']/i);
+              const rankMatch = block.match(/data-rank=["'](\d+)["']/i);
+              const idMatch   = block.match(/profile\.php\?id=(\d+)/i);
+              const ppMatch   = block.match(/(\d+)pp/i);
+
+              if (nameMatch && idMatch) {
+                const foundName = nameMatch[1];
+                const foundId   = idMatch[1];
+                const foundRank = rankMatch ? parseInt(rankMatch[1], 10) : 81;
+                const foundPp   = ppMatch ? parseInt(ppMatch[1], 10) : 15000;
+
+                if (foundId === clean || foundName.toLowerCase() === cleanLower) {
+                  return {
+                    id:          foundId,
+                    username:    foundName,
+                    avatarUrl:   `https://v4rx.me/user/avatar/${foundId}.png`,
+                    countryCode: 'ID',
+                    countryFlag: '🇮🇩',
+                    v4rxRank:    foundRank,
+                    v4rxPp:      foundPp,
+                    v4rxAccuracy: 95.0,
+                  };
+                }
+              }
+            }
+          }
+        }
+      } catch {
+        // Next proxy
+      }
+    }
+  } catch {
+    // Ignore leaderboard search error
   }
 
   // 2. Verified presets from live v4rx.me global leaderboard

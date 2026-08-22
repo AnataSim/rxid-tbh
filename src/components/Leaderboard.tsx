@@ -79,7 +79,10 @@ export const Leaderboard: React.FC = () => {
                 fresh.countryCode !== player.countryCode ||
                 fresh.v4rxPp !== player.v4rxPp ||
                 fresh.v4rxAccuracy !== player.v4rxAccuracy ||
-                fresh.v4rxRank !== player.v4rxRank
+                fresh.v4rxRank !== player.v4rxRank ||
+                fresh.avatarUrl !== player.avatarUrl ||
+                !player.avatarUrl ||
+                player.avatarUrl.includes('ui-avatars.com')
               )
             ) {
               setPlayers(prev => {

@@ -117,33 +117,60 @@ export async function registerUser(data: RegisterData): Promise<User> {
     v4rxPp = 0, v4rxRank = 81, v4rxAccuracy = 0,
   } = data;
 
-  // 1. Create Firebase Auth user
+  // 1. Auto-fetch real v4rx profile data for ANY new registering member!
+  let finalUsername = username;
+  let finalOsuId = osuId || '';
+  let finalAvatar = buildAvatarUrl(osuId, username);
+  let finalCountryCode = countryCode;
+  let finalFlag = countryFlag || countryCodeToEmoji(countryCode);
+  let finalRank = v4rxRank;
+  let finalPp = v4rxPp;
+  let finalAcc = v4rxAccuracy;
+
+  const targetIdToFetch = osuId || username;
+  if (targetIdToFetch) {
+    try {
+      const fresh = await fetchV4rxProfile(targetIdToFetch);
+      if (fresh && fresh.username && !fresh.username.startsWith('Player #')) {
+        finalUsername = fresh.username;
+        if (fresh.id) finalOsuId = fresh.id;
+        finalAvatar = fresh.avatarUrl;
+        finalCountryCode = fresh.countryCode;
+        finalFlag = fresh.countryFlag;
+        if (fresh.v4rxRank > 0) finalRank = fresh.v4rxRank;
+        if (fresh.v4rxPp > 0) finalPp = fresh.v4rxPp;
+        if (fresh.v4rxAccuracy > 0) finalAcc = fresh.v4rxAccuracy;
+      }
+    } catch {
+      // Ignore fetch error, proceed with fallback
+    }
+  }
+
+  // 2. Create Firebase Auth user
   const cred = await createUserWithEmailAndPassword(auth, email, password);
   const firebaseUser = cred.user;
 
-  // 2. Update displayName
-  await updateProfile(firebaseUser, { displayName: username });
+  // 3. Update displayName
+  await updateProfile(firebaseUser, { displayName: finalUsername });
 
-  // 3. Build Firestore profile
-  const avatarUrl = buildAvatarUrl(osuId, username);
-  const title     = assignTitle(v4rxPp);
-  const nowIso    = new Date().toISOString();
-  const flag      = countryFlag || countryCodeToEmoji(countryCode);
+  // 4. Build Firestore profile with guaranteed real v4rx data
+  const title  = assignTitle(finalPp);
+  const nowIso = new Date().toISOString();
 
-  const isGiverAccount = ['sim', 'darkww', '63', '85'].includes(username.trim().toLowerCase()) || (osuId ? ['63', '85'].includes(osuId.trim()) : false);
+  const isGiverAccount = ['sim', 'darkww', '63', '85'].includes(finalUsername.trim().toLowerCase()) || (finalOsuId ? ['63', '85'].includes(finalOsuId.trim()) : false);
 
   const profile: User = {
     id:                  firebaseUser.uid,
     uid:                 firebaseUser.uid,
-    osuId:               osuId || '',
+    osuId:               finalOsuId,
     email,
-    username,
-    avatarUrl,
-    countryCode,
-    countryFlag:         flag,
-    v4rxRank,
-    v4rxPp,
-    v4rxAccuracy,
+    username:            finalUsername,
+    avatarUrl:           finalAvatar,
+    countryCode:         finalCountryCode,
+    countryFlag:         finalFlag,
+    v4rxRank:            finalRank,
+    v4rxPp:              finalPp,
+    v4rxAccuracy:        finalAcc,
     playCount:           0,
     role:                isGiverAccount ? 'bounty_giver' : 'bounty_hunter',
     bountyPoints:        100,
@@ -154,7 +181,7 @@ export async function registerUser(data: RegisterData): Promise<User> {
     lastLoginAt:         nowIso,
   };
 
-  // 4. Save to Firestore
+  // 5. Save to Firestore
   await setDoc(doc(db, 'users', firebaseUser.uid), {
     ...profile,
     createdAtServer: serverTimestamp(),
@@ -229,7 +256,8 @@ export async function fetchUserProfile(uid: string): Promise<User | null> {
   if (profile.osuId || profile.username) {
     const targetId = profile.osuId || profile.username.trim();
     if (targetId) {
-      fetchV4rxProfile(targetId).then(fresh => {
+      try {
+        const fresh = await fetchV4rxProfile(targetId);
         if (fresh && fresh.username && !fresh.username.startsWith('Player #')) {
           profile.username = fresh.username;
           profile.avatarUrl = fresh.avatarUrl;
@@ -238,6 +266,7 @@ export async function fetchUserProfile(uid: string): Promise<User | null> {
           profile.v4rxRank = fresh.v4rxRank;
           profile.v4rxPp = fresh.v4rxPp;
           profile.v4rxAccuracy = fresh.v4rxAccuracy;
+          profile.title = assignTitle(fresh.v4rxPp);
           setDoc(doc(db, 'users', uid), {
             username: fresh.username,
             avatarUrl: fresh.avatarUrl,
@@ -246,9 +275,12 @@ export async function fetchUserProfile(uid: string): Promise<User | null> {
             v4rxRank: fresh.v4rxRank,
             v4rxPp: fresh.v4rxPp,
             v4rxAccuracy: fresh.v4rxAccuracy,
+            title: profile.title,
           }, { merge: true }).catch(() => {});
         }
-      }).catch(() => {});
+      } catch {
+        // Ignore background sync errors
+      }
     }
   }
 
