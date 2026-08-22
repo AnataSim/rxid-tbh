@@ -28,6 +28,7 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
 }) => {
   const { activeRole } = useAuth();
   if (!bounty) return null;
+  const { beatmap, giver, reward, instructions, rules, tags } = bounty;
   const isCreator = currentUser.id === giver.id;
   const isGiver = bounty.isFfa ? isCreator : (isCreator || activeRole === 'bounty_giver');
   const isBanned = Boolean(
