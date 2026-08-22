@@ -57,6 +57,7 @@ export interface Submission {
   rejectionReason?: string;
   awardedBp?: number;
   bpMultiplier?: number;
+  awardedTier?: 1 | 2;
 }
 
 export interface Bounty {
@@ -71,6 +72,11 @@ export interface Bounty {
     amount: number;
     currency: 'BP' | 'USD' | 'Supporter';
   };
+  isDualReward?: boolean;
+  rewardTier1?: number;
+  rewardTier2?: number;
+  instructionTier1?: string;
+  instructionTier2?: string;
   instructions: string;
   rules: string[];
   tags: string[];

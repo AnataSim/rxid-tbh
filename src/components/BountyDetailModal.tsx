@@ -142,15 +142,30 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
                   <Trophy size={9} style={{ display: 'inline', marginRight: 2 }} />
                   {beatmap.status}
                 </span>
-                <span style={{
-                  display: 'inline-flex', alignItems: 'center', gap: 4,
-                  padding: '2px 8px', borderRadius: 4,
-                  background: 'rgba(232,160,32,0.15)', color: 'var(--gold)',
-                  fontSize: 10, fontWeight: 700, fontFamily: 'var(--mono)',
-                }}>
-                  <Coins size={9} />
-                  {reward.amount.toLocaleString()} {reward.currency}
-                </span>
+                {bounty.isDualReward ? (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    padding: '2px 10px', borderRadius: 4,
+                    background: 'rgba(0,0,0,0.4)', border: '1px solid var(--border)',
+                    fontSize: 11, fontWeight: 700, fontFamily: 'var(--mono)',
+                  }}>
+                    <Coins size={10} style={{ color: 'var(--gold)' }} />
+                    <span style={{ color: '#f87171' }}>{(bounty.rewardTier1 ?? 0).toLocaleString()}</span>
+                    <span style={{ color: 'var(--text-3)' }}>/</span>
+                    <span style={{ color: '#4ade80' }}>{(bounty.rewardTier2 ?? 0).toLocaleString()}</span>
+                    <span style={{ color: 'var(--text-3)', fontSize: 10 }}>BP</span>
+                  </span>
+                ) : (
+                  <span style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 4,
+                    padding: '2px 8px', borderRadius: 4,
+                    background: 'rgba(232,160,32,0.15)', color: 'var(--gold)',
+                    fontSize: 10, fontWeight: 700, fontFamily: 'var(--mono)',
+                  }}>
+                    <Coins size={9} />
+                    {reward.amount.toLocaleString()} {reward.currency}
+                  </span>
+                )}
                 {tags.slice(0, 3).map((t, i) => (
                   <span key={i} className="label label-tag">{t}</span>
                 ))}
@@ -191,16 +206,60 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
             </span>
           </div>
 
-          {/* Instructions */}
+          {/* Mission Instructions */}
           <div>
             <div className="section-label">Mission Instructions</div>
-            <div style={{
-              padding: '12px 14px', borderRadius: 'var(--radius)',
-              background: 'var(--bg)', border: '1px solid var(--border)',
-              fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6,
-            }}>
-              {instructions}
-            </div>
+            {bounty.isDualReward ? (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
+                {/* Red Tier Card */}
+                <div style={{
+                  padding: '12px 14px', borderRadius: 'var(--radius)',
+                  background: 'rgba(248, 113, 113, 0.06)',
+                  border: '1px solid rgba(248, 113, 113, 0.35)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#f87171', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f87171' }} />
+                      Tier 1 Instruction (Red)
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: '#f87171', fontFamily: 'var(--mono)' }}>
+                      {(bounty.rewardTier1 ?? 0).toLocaleString()} BP
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-1)', lineHeight: 1.5 }}>
+                    {bounty.instructionTier1 || instructions}
+                  </div>
+                </div>
+
+                {/* Green Tier Card */}
+                <div style={{
+                  padding: '12px 14px', borderRadius: 'var(--radius)',
+                  background: 'rgba(74, 222, 128, 0.06)',
+                  border: '1px solid rgba(74, 222, 128, 0.35)',
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80' }} />
+                      Tier 2 Instruction (Green)
+                    </span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: '#4ade80', fontFamily: 'var(--mono)' }}>
+                      {(bounty.rewardTier2 ?? 0).toLocaleString()} BP
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 12, color: 'var(--text-1)', lineHeight: 1.5 }}>
+                    {bounty.instructionTier2 || instructions}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={{
+                padding: '12px 14px', borderRadius: 'var(--radius)',
+                background: 'var(--bg)', border: '1px solid var(--border)',
+                fontSize: 13, color: 'var(--text-2)', lineHeight: 1.6,
+              }}>
+                {instructions}
+              </div>
+            )}
           </div>
 
           {/* Rules */}

@@ -15,7 +15,7 @@ service cloud.firestore {
     function isBpSyncUpdate() {
       return isAuthenticated() &&
         request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['bountyPoints', 'bountiesClaimedCount', 'lastBpUpdatedAtServer']);
+          .hasOnly(['bountyPoints', 'bountiesClaimedCount', 'lastBpUpdatedAt', 'lastBpUpdatedAtServer']);
     }
 
     // 1. Users Collection — Read by any authenticated user (Leaderboard)

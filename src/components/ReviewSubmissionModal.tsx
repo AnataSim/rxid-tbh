@@ -5,7 +5,7 @@ import { X, CheckCircle, XCircle, ExternalLink, ShieldCheck, Coins, FileText, Ch
 interface ReviewSubmissionModalProps {
   bounty: Bounty;
   onClose: () => void;
-  onApprove: (bountyId: string, subId: string, hunterId?: string, beatmapTitle?: string, rewardAmount?: number) => void;
+  onApprove: (bountyId: string, subId: string, hunterId?: string, beatmapTitle?: string, rewardAmount?: number, selectedTier?: 1 | 2) => void;
   onReject: (bountyId: string, subId: string, reason: string, hunterId?: string, beatmapTitle?: string) => void;
   onDeleteSubmission?: (bountyId: string, subId: string) => void;
 }
@@ -40,9 +40,10 @@ export const ReviewSubmissionModal: React.FC<ReviewSubmissionModalProps> = ({
     status: localStatusMap[s.id] || s.status,
   }));
 
-  const handleConfirmApprove = (sub: Submission) => {
+  const handleConfirmApprove = (sub: Submission, selectedTier?: 1 | 2, tierAmount?: number) => {
     setLocalStatusMap(prev => ({ ...prev, [sub.id]: 'approved' }));
-    onApprove(bounty.id, sub.id, sub.hunterId, bounty.beatmap.title, bounty.reward.amount);
+    const finalReward = tierAmount !== undefined ? tierAmount : bounty.reward.amount;
+    onApprove(bounty.id, sub.id, sub.hunterId, bounty.beatmap.title, finalReward, selectedTier);
   };
 
   const handleConfirmReject = (sub: Submission, rejectReason: string) => {
@@ -94,10 +95,19 @@ export const ReviewSubmissionModal: React.FC<ReviewSubmissionModalProps> = ({
             marginBottom: 16, fontSize: 12,
           }}>
             <span style={{ color: 'var(--text-2)' }}>Reward per approval</span>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--mono)', fontWeight: 600, color: 'var(--gold)' }}>
-              <Coins size={12} />
-              {bounty.reward.amount.toLocaleString()} {bounty.reward.currency}
-            </span>
+            {bounty.isDualReward ? (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: 'var(--mono)', fontWeight: 700, fontSize: 12 }}>
+                <Coins size={12} style={{ color: 'var(--gold)' }} />
+                <span style={{ color: '#f87171' }}>🟥 {(bounty.rewardTier1 ?? 100).toLocaleString()} BP</span>
+                <span style={{ color: 'var(--text-3)' }}>/</span>
+                <span style={{ color: '#4ade80' }}>🟩 {(bounty.rewardTier2 ?? 150).toLocaleString()} BP</span>
+              </span>
+            ) : (
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4, fontFamily: 'var(--mono)', fontWeight: 600, color: 'var(--gold)' }}>
+                <Coins size={12} />
+                {bounty.reward.amount.toLocaleString()} {bounty.reward.currency}
+              </span>
+            )}
           </div>
 
           {/* TAB 1: APPROVAL (Pending Items Only) */}
@@ -224,20 +234,100 @@ export const ReviewSubmissionModal: React.FC<ReviewSubmissionModalProps> = ({
                         </div>
                       ) : (
                         <div style={{
-                          display: 'flex', gap: 8, padding: '12px 14px',
+                          display: 'flex', flexDirection: 'column', gap: 8, padding: '12px 14px',
                           borderTop: '1px solid var(--border)',
                         }}>
-                          <button
-                            className="btn btn-success"
-                            style={{ flex: 1, fontSize: 13 }}
-                            onClick={() => handleConfirmApprove(sub)}
-                          >
-                            <CheckCircle size={14} />
-                            Approve & Pay {bounty.reward.amount.toLocaleString()} {bounty.reward.currency}
-                          </button>
-                          <button className="btn btn-danger btn-sm" onClick={() => setRejectId(sub.id)}>
-                            <XCircle size={13} /> Reject
-                          </button>
+                          {bounty.isDualReward ? (
+                            /* DUAL APPROVAL BUTTONS (RED VS GREEN) */
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              {/* RED TIER BUTTON */}
+                              <button
+                                type="button"
+                                className="btn"
+                                style={{
+                                  flex: 1,
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  padding: '8px 10px',
+                                  background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(220, 38, 38, 0.35))',
+                                  border: '1px solid rgba(239, 68, 68, 0.6)',
+                                  color: '#ffffff',
+                                  borderRadius: 'var(--radius)',
+                                  cursor: 'pointer',
+                                }}
+                                onClick={() => handleConfirmApprove(sub, 1, bounty.rewardTier1 || 100)}
+                                title={bounty.instructionTier1 ? `Instruksi Merah: ${bounty.instructionTier1}` : 'Approve Tier 1'}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700 }}>
+                                  <CheckCircle size={14} color="#f87171" />
+                                  Approve Merah ({(bounty.rewardTier1 ?? 100).toLocaleString()} BP)
+                                </div>
+                                {bounty.instructionTier1 && (
+                                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                                    "{bounty.instructionTier1}"
+                                  </div>
+                                )}
+                              </button>
+
+                              {/* GREEN TIER BUTTON */}
+                              <button
+                                type="button"
+                                className="btn"
+                                style={{
+                                  flex: 1,
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  padding: '8px 10px',
+                                  background: 'linear-gradient(135deg, rgba(34, 197, 94, 0.2), rgba(22, 163, 74, 0.35))',
+                                  border: '1px solid rgba(34, 197, 94, 0.6)',
+                                  color: '#ffffff',
+                                  borderRadius: 'var(--radius)',
+                                  cursor: 'pointer',
+                                }}
+                                onClick={() => handleConfirmApprove(sub, 2, bounty.rewardTier2 || 150)}
+                                title={bounty.instructionTier2 ? `Instruksi Hijau: ${bounty.instructionTier2}` : 'Approve Tier 2'}
+                              >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700 }}>
+                                  <CheckCircle size={14} color="#4ade80" />
+                                  Approve Hijau ({(bounty.rewardTier2 ?? 150).toLocaleString()} BP)
+                                </div>
+                                {bounty.instructionTier2 && (
+                                  <div style={{ fontSize: 10, color: 'rgba(255,255,255,0.7)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '100%' }}>
+                                    "{bounty.instructionTier2}"
+                                  </div>
+                                )}
+                              </button>
+
+                              {/* REJECT BUTTON */}
+                              <button
+                                type="button"
+                                className="btn btn-danger btn-sm"
+                                style={{ flexShrink: 0 }}
+                                onClick={() => setRejectId(sub.id)}
+                              >
+                                <XCircle size={13} /> Reject
+                              </button>
+                            </div>
+                          ) : (
+                            /* SINGLE TIER APPROVAL BUTTON */
+                            <div style={{ display: 'flex', gap: 8 }}>
+                              <button
+                                className="btn btn-success"
+                                style={{ flex: 1, fontSize: 13 }}
+                                onClick={() => handleConfirmApprove(sub)}
+                              >
+                                <CheckCircle size={14} />
+                                Approve & Pay {bounty.reward.amount.toLocaleString()} {bounty.reward.currency}
+                              </button>
+                              <button className="btn btn-danger btn-sm" onClick={() => setRejectId(sub.id)}>
+                                <XCircle size={13} /> Reject
+                              </button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -291,7 +381,10 @@ export const ReviewSubmissionModal: React.FC<ReviewSubmissionModalProps> = ({
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             {isApproved ? (
                               <span className="sub-status sub-status-approved" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-                                <CheckCircle2 size={11} /> Approved (+{sub.awardedBp !== undefined ? sub.awardedBp : bounty.reward.amount} {bounty.reward.currency}{sub.bpMultiplier !== undefined && sub.bpMultiplier !== 1.0 ? ` [${sub.bpMultiplier}x]` : ''})
+                                <CheckCircle2 size={11} /> Approved
+                                {sub.awardedTier === 1 && <span style={{ color: '#f87171', fontWeight: 800 }}>(Merah)</span>}
+                                {sub.awardedTier === 2 && <span style={{ color: '#4ade80', fontWeight: 800 }}>(Hijau)</span>}
+                                (+{sub.awardedBp !== undefined ? sub.awardedBp : bounty.reward.amount} {bounty.reward.currency}{sub.bpMultiplier !== undefined && sub.bpMultiplier !== 1.0 ? ` [${sub.bpMultiplier}x]` : ''})
                               </span>
                             ) : (
                               <span className="sub-status sub-status-rejected" style={{ display: 'flex', alignItems: 'center', gap: 4 }}>

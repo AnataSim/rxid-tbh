@@ -268,7 +268,8 @@ export async function approveSubmission(
   submissionId: string,
   hunterId?: string,
   beatmapTitle?: string,
-  rewardAmount?: number
+  rewardAmount?: number,
+  selectedTier?: 1 | 2
 ): Promise<void> {
   const baseReward = rewardAmount || 100;
   let amountToAward = baseReward;
@@ -329,6 +330,7 @@ export async function approveSubmission(
     status: 'approved',
     awardedBp: amountToAward,
     bpMultiplier: activeMultiplier,
+    ...(selectedTier ? { awardedTier: selectedTier } : {}),
   });
 
   // 5. Update parent Bounty doc

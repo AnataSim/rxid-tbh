@@ -84,7 +84,15 @@ export const BountyCard: React.FC<BountyCardProps> = ({ bounty, onSelect }) => {
 
         <div className="card-bottom">
           <div className="reward-pill">
-            <span>{reward.amount.toLocaleString()}</span>
+            {bounty.isDualReward ? (
+              <>
+                <span style={{ color: '#f87171', fontWeight: 800 }}>{(bounty.rewardTier1 ?? 0).toLocaleString()}</span>
+                <span style={{ color: 'var(--text-3)', margin: '0 2px', fontWeight: 600 }}>/</span>
+                <span style={{ color: '#4ade80', fontWeight: 800 }}>{(bounty.rewardTier2 ?? 0).toLocaleString()}</span>
+              </>
+            ) : (
+              <span style={{ color: 'var(--gold)', fontWeight: 800 }}>{reward.amount.toLocaleString()}</span>
+            )}
             <span style={{ color: 'var(--text-3)', fontSize: 10 }}>{reward.currency}</span>
           </div>
 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import type { User, Bounty, BeatmapMetadata } from '../types/bounty';
 import { fetchBeatmapMetadata } from '../services/osuApi';
-import { X, Link as LinkIcon, Coins, Plus, Trash2, CheckCircle2, Sparkles, UserX } from 'lucide-react';
+import { X, Link as LinkIcon, Coins, Plus, Trash2, CheckCircle2, Sparkles, UserX, Layers } from 'lucide-react';
 import { collection, query, limit, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
@@ -15,8 +15,18 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
   currentUser, onClose, onCreateBounty,
 }) => {
   const [mapUrl, setMapUrl] = useState('');
+  
+  // Single mode state
   const [rewardAmount, setRewardAmount] = useState<string>('0');
   const [instructions, setInstructions] = useState('');
+
+  // Dual mode toggle & state
+  const [isDualMode, setIsDualMode] = useState(false);
+  const [rewardTier1, setRewardTier1] = useState<string>('100');
+  const [rewardTier2, setRewardTier2] = useState<string>('150');
+  const [instructionTier1, setInstructionTier1] = useState('');
+  const [instructionTier2, setInstructionTier2] = useState('');
+
   const [rules, setRules] = useState<string[]>([]);
   const [newRule, setNewRule] = useState('');
   const [tagInput, setTagInput] = useState('');
@@ -40,13 +50,15 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
     fetchUsers();
   }, []);
 
-  const handleRewardChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/[^\d]/g, '');
-    if (/^0\d+/.test(val)) {
-      val = val.replace(/^0+/, '');
-    }
+  const parseBpInput = (valStr: string) => {
+    let val = valStr.replace(/[^\d]/g, '');
+    if (/^0\d+/.test(val)) val = val.replace(/^0+/, '');
     if (val === '') val = '0';
-    setRewardAmount(val);
+    return val;
+  };
+
+  const handleRewardChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setRewardAmount(parseBpInput(e.target.value));
   };
 
   useEffect(() => {
@@ -64,11 +76,37 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
     if (!metadata) return;
     const tags = tagInput.split(',').map(t => t.trim()).filter(Boolean);
     const skillsets = skillsetInput.split(',').map(s => s.trim()).filter(Boolean);
+
+    let finalRewardAmount = 0;
+    let finalInstructions = instructions;
+    let t1Amount: number | undefined;
+    let t2Amount: number | undefined;
+    let t1Instr: string | undefined;
+    let t2Instr: string | undefined;
+
+    if (isDualMode) {
+      t1Amount = Number(rewardTier1) || 0;
+      t2Amount = Number(rewardTier2) || 0;
+      // Per rules: total pool BP is taken from the HIGHER number (max BP)
+      finalRewardAmount = Math.max(t1Amount, t2Amount);
+      t1Instr = instructionTier1;
+      t2Instr = instructionTier2;
+      finalInstructions = `🟥 Tier 1 (${t1Amount} BP): ${instructionTier1}\n🟩 Tier 2 (${t2Amount} BP): ${instructionTier2}`;
+    } else {
+      finalRewardAmount = Number(rewardAmount) || 0;
+    }
+
     onCreateBounty({
       beatmap: metadata,
       giver: { id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl },
-      reward: { amount: Number(rewardAmount) || 0, currency: 'BP' },
-      instructions, rules,
+      reward: { amount: finalRewardAmount, currency: 'BP' },
+      isDualReward: isDualMode,
+      rewardTier1: t1Amount,
+      rewardTier2: t2Amount,
+      instructionTier1: t1Instr,
+      instructionTier2: t2Instr,
+      instructions: finalInstructions,
+      rules,
       tags: [metadata.status.toUpperCase(), ...tags.filter(Boolean)],
       skillsets,
       bannedHunters: bannedUsers.map(u => u.id),
@@ -79,6 +117,10 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
     });
     onClose();
   };
+
+  const calculatedMaxPool = isDualMode
+    ? Math.max(Number(rewardTier1) || 0, Number(rewardTier2) || 0)
+    : Number(rewardAmount) || 0;
 
   return (
     <div className="modal-overlay" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
@@ -138,43 +180,199 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
               </div>
             )}
 
-            {/* Reward */}
-            <div className="form-group">
-              <label className="form-label"><Coins size={11} /> Reward (BP)</label>
-              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  required
-                  value={rewardAmount}
-                  onChange={handleRewardChange}
-                  className="form-input mono"
-                  style={{ paddingRight: 48 }}
-                />
-                <span style={{
-                  position: 'absolute',
-                  right: 12,
-                  fontSize: 12,
-                  fontWeight: 800,
-                  color: 'var(--gold)',
-                  fontFamily: 'var(--mono)',
-                  pointerEvents: 'none',
+            {/* Dual Mode Toggle Banner */}
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              padding: '12px 14px', borderRadius: 'var(--radius)',
+              background: isDualMode ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-1)',
+              border: `1px solid ${isDualMode ? 'rgba(239, 68, 68, 0.3)' : 'var(--border)'}`,
+              transition: 'all 0.2s ease',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                  padding: 6, borderRadius: 6,
+                  background: isDualMode ? 'rgba(239, 68, 68, 0.2)' : 'var(--bg)',
+                  color: isDualMode ? '#f87171' : 'var(--text-3)',
                 }}>
-                  BP
-                </span>
+                  <Layers size={16} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)' }}>
+                    Dual Reward & Instruction Mode
+                  </div>
+                  <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>
+                    {isDualMode ? 'ON (2 Hadiah BP: Merah & Hijau, 2 Instruksi)' : 'OFF (1 Hadiah BP: Kuning, 1 Instruksi)'}
+                  </div>
+                </div>
               </div>
+
+              {/* Custom Switch Toggle */}
+              <button
+                type="button"
+                onClick={() => setIsDualMode(prev => !prev)}
+                style={{
+                  padding: '5px 12px',
+                  borderRadius: 99,
+                  border: `1px solid ${isDualMode ? '#4ade80' : 'var(--border)'}`,
+                  background: isDualMode ? 'rgba(74, 222, 128, 0.2)' : 'var(--bg)',
+                  color: isDualMode ? '#4ade80' : 'var(--text-3)',
+                  fontSize: 11,
+                  fontWeight: 700,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <span style={{
+                  width: 8, height: 8, borderRadius: '50%',
+                  background: isDualMode ? '#4ade80' : 'var(--text-3)',
+                }} />
+                {isDualMode ? 'ON' : 'OFF'}
+              </button>
             </div>
 
-            {/* Instructions */}
-            <div className="form-group">
-              <label className="form-label">Hunter Instructions</label>
-              <textarea
-                required rows={3}
-                value={instructions} onChange={e => setInstructions(e.target.value)}
-                placeholder="Describe exactly what hunters need to do…"
-                className="form-input"
-              />
-            </div>
+            {/* SINGLE REWARD & INSTRUCTION FORM (If OFF) */}
+            {!isDualMode ? (
+              <>
+                {/* Single Reward */}
+                <div className="form-group">
+                  <label className="form-label"><Coins size={11} /> Reward (BP) - <span style={{ color: 'var(--gold)' }}>Single Tier (Kuning)</span></label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      required={!isDualMode}
+                      value={rewardAmount}
+                      onChange={handleRewardChange}
+                      className="form-input mono"
+                      style={{ paddingRight: 48, color: 'var(--gold)', fontWeight: 700 }}
+                    />
+                    <span style={{
+                      position: 'absolute',
+                      right: 12,
+                      fontSize: 12,
+                      fontWeight: 800,
+                      color: 'var(--gold)',
+                      fontFamily: 'var(--mono)',
+                      pointerEvents: 'none',
+                    }}>
+                      BP
+                    </span>
+                  </div>
+                </div>
+
+                {/* Single Instructions */}
+                <div className="form-group">
+                  <label className="form-label">Hunter Instructions</label>
+                  <textarea
+                    required={!isDualMode} rows={3}
+                    value={instructions} onChange={e => setInstructions(e.target.value)}
+                    placeholder="Describe exactly what hunters need to do…"
+                    className="form-input"
+                  />
+                </div>
+              </>
+            ) : (
+              /* DUAL REWARD & INSTRUCTIONS FORM (If ON - Kiri Kanan Side-by-Side) */
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                  {/* Left Column: Tier 1 (Red / Merah) */}
+                  <div style={{
+                    padding: 12, borderRadius: 'var(--radius)',
+                    border: '1px solid rgba(248, 113, 113, 0.4)',
+                    background: 'rgba(248, 113, 113, 0.05)',
+                    display: 'flex', flexDirection: 'column', gap: 10,
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#f87171', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f87171' }} />
+                      Instruksi 1 (Merah / Red)
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: 10, color: '#f87171' }}>Hadiah BP 1 (Merah)</label>
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          required={isDualMode}
+                          value={rewardTier1}
+                          onChange={e => setRewardTier1(parseBpInput(e.target.value))}
+                          className="form-input mono"
+                          style={{ color: '#f87171', fontWeight: 700, paddingRight: 36, fontSize: 13 }}
+                        />
+                        <span style={{ position: 'absolute', right: 8, fontSize: 11, fontWeight: 800, color: '#f87171' }}>BP</span>
+                      </div>
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: 10, color: 'var(--text-2)' }}>Instruksi 1</label>
+                      <textarea
+                        required={isDualMode} rows={3}
+                        value={instructionTier1}
+                        onChange={e => setInstructionTier1(e.target.value)}
+                        placeholder="e.g. miss 3x"
+                        className="form-input"
+                        style={{ fontSize: 12 }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Right Column: Tier 2 (Green / Hijau) */}
+                  <div style={{
+                    padding: 12, borderRadius: 'var(--radius)',
+                    border: '1px solid rgba(74, 222, 128, 0.4)',
+                    background: 'rgba(74, 222, 128, 0.05)',
+                    display: 'flex', flexDirection: 'column', gap: 10,
+                  }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80' }} />
+                      Instruksi 2 (Hijau / Green)
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: 10, color: '#4ade80' }}>Hadiah BP 2 (Hijau)</label>
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          required={isDualMode}
+                          value={rewardTier2}
+                          onChange={e => setRewardTier2(parseBpInput(e.target.value))}
+                          className="form-input mono"
+                          style={{ color: '#4ade80', fontWeight: 700, paddingRight: 36, fontSize: 13 }}
+                        />
+                        <span style={{ position: 'absolute', right: 8, fontSize: 11, fontWeight: 800, color: '#4ade80' }}>BP</span>
+                      </div>
+                    </div>
+
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: 10, color: 'var(--text-2)' }}>Instruksi 2</label>
+                      <textarea
+                        required={isDualMode} rows={3}
+                        value={instructionTier2}
+                        onChange={e => setInstructionTier2(e.target.value)}
+                        placeholder="e.g. ga miss"
+                        className="form-input"
+                        style={{ fontSize: 12 }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Info Note regarding Max Pool Calculation */}
+                <div style={{
+                  fontSize: 11, color: 'var(--gold)', background: 'rgba(234, 179, 8, 0.1)',
+                  padding: '8px 12px', borderRadius: 'var(--radius)', border: '1px solid rgba(234, 179, 8, 0.3)',
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}>
+                  <Coins size={12} />
+                  <span>
+                    <strong>Total Pool BP requirement:</strong> Max reward value = <strong>{calculatedMaxPool} BP</strong> (diambil dari angka terbesar).
+                  </span>
+                </div>
+              </div>
+            )}
 
             {/* Rules */}
             <div className="form-group">
@@ -327,7 +525,7 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
               style={{ opacity: !metadata ? 0.4 : 1 }}
             >
               <Sparkles size={13} />
-              Publish Bounty
+              Publish Bounty ({calculatedMaxPool} BP)
             </button>
           </div>
         </form>
