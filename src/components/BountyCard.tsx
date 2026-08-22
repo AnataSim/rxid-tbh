@@ -74,32 +74,37 @@ export const BountyCard: React.FC<BountyCardProps> = ({ bounty, onSelect }) => {
           </span>
         </div>
 
-        {/* BR: Accumulated community average difficulty rating badge + Live Countdown Timer */}
-        <div style={{ position: 'absolute', bottom: 8, right: 8, zIndex: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-          {countdown && (
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 4,
-                padding: '3px 8px',
-                borderRadius: 6,
-                background: 'rgba(0, 0, 0, 0.75)',
-                border: `1px solid ${countdown.isExpired ? '#f87171' : 'rgba(248, 113, 113, 0.6)'}`,
-                color: '#f87171',
-                fontSize: 11,
-                fontWeight: 800,
-                fontFamily: 'var(--mono)',
-                boxShadow: '0 0 10px rgba(239, 68, 68, 0.3)',
-                backdropFilter: 'blur(4px)',
-              }}
-              title={countdown.isExpired ? 'Quest Deadline Expired (LIMITED)' : `Time remaining: ${countdown.formatted}`}
-            >
-              <Clock size={10} color="#f87171" />
-              <span>{countdown.badgeText}</span>
-            </div>
-          )}
+        {/* BL: Live Countdown Timer (Bottom-Left) */}
+        {countdown && (
+          <div
+            style={{
+              position: 'absolute',
+              bottom: 8,
+              left: 8,
+              zIndex: 6,
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: 4,
+              padding: '3px 8px',
+              borderRadius: 6,
+              background: 'rgba(0, 0, 0, 0.75)',
+              border: `1px solid ${countdown.isExpired ? '#f87171' : 'rgba(248, 113, 113, 0.6)'}`,
+              color: '#f87171',
+              fontSize: 11,
+              fontWeight: 800,
+              fontFamily: 'var(--mono)',
+              boxShadow: '0 0 10px rgba(239, 68, 68, 0.3)',
+              backdropFilter: 'blur(4px)',
+            }}
+            title={countdown.isExpired ? 'Quest Deadline Expired (LIMITED)' : `Time remaining: ${countdown.formatted}`}
+          >
+            <Clock size={10} color="#f87171" />
+            <span>{countdown.badgeText}</span>
+          </div>
+        )}
 
+        {/* BR: Accumulated community average difficulty rating badge (Bottom-Right) */}
+        <div style={{ position: 'absolute', bottom: 8, right: 8, zIndex: 6 }}>
           <DifficultyBadge rating={bounty.avgDifficulty || 0} />
         </div>
       </div>

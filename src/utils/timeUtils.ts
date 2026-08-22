@@ -30,29 +30,16 @@ export function calculateCountdown(deadlineAt?: string): CountdownResult | null 
     };
   }
 
-  const seconds = Math.floor((diff / 1000) % 60);
-  const minutes = Math.floor((diff / (1000 * 60)) % 60);
-  const hours   = Math.floor((diff / (1000 * 60 * 60)) % 24);
-  const days    = Math.floor(diff / (1000 * 60 * 60 * 24));
-
-  let formatted = '';
-  if (days > 0) {
-    formatted = `${days}d ${hours}h`;
-  } else if (hours > 0) {
-    formatted = `${hours}h ${minutes}m`;
-  } else if (minutes > 0) {
-    formatted = `${minutes}m ${seconds}s`;
-  } else {
-    formatted = `${seconds}s`;
-  }
+  const daysLeft = Math.ceil(diff / (1000 * 60 * 60 * 24));
+  const formatted = `${daysLeft}d`;
 
   return {
     isExpired: false,
     badgeText: formatted,
     formatted,
-    days,
-    hours,
-    minutes,
-    seconds,
+    days: daysLeft,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
   };
 }
