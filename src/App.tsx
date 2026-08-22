@@ -256,9 +256,11 @@ export function AppContent() {
   const startIndex = (safeCurrentPage - 1) * ITEMS_PER_PAGE;
   const paginatedBounties = filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
-  const pool      = bounties.reduce((s, b) => s + b.reward.amount, 0);
-  const openCount = bounties.filter(b => b.status === 'open').length;
-  const doneCount = bounties.filter(b => b.status === 'completed').length;
+  const officialBounties = bounties.filter(b => !b.isFfa);
+  const totalOfficialCount = officialBounties.length;
+  const pool      = officialBounties.reduce((s, b) => s + b.reward.amount, 0);
+  const openCount = officialBounties.filter(b => b.status === 'open').length;
+  const doneCount = officialBounties.filter(b => b.status === 'completed').length;
 
   const FILTERS = [
     { id: 'all',       label: 'All' },
@@ -437,7 +439,7 @@ export function AppContent() {
                   onClick={() => setActiveTab('titles')}
                 />
                 {[
-                  { label: 'Total',    value: bounties.length,             icon: <Trophy size={13} style={{ color: 'var(--blue)' }} /> },
+                  { label: 'Total',    value: totalOfficialCount,          icon: <Trophy size={13} style={{ color: 'var(--blue)' }} /> },
                   { label: 'Pool',     value: pool.toLocaleString(),       icon: <Coins size={13} style={{ color: 'var(--gold)' }} /> },
                   { label: 'Open',     value: openCount,                   icon: <Target size={13} style={{ color: 'var(--accent)' }} /> },
                   { label: 'Cleared',  value: doneCount,                   icon: <CheckCircle2 size={13} style={{ color: 'var(--green)' }} /> },
