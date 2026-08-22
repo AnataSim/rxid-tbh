@@ -108,8 +108,11 @@ export async function createBounty(
     }
   }
 
+  // Strip any undefined keys before sending to Firestore
+  const cleanData = JSON.parse(JSON.stringify(bountyData));
+
   const ref = await addDoc(collection(db, BOUNTIES_COL), {
-    ...bountyData,
+    ...cleanData,
     createdAtServer: serverTimestamp(),
   });
 

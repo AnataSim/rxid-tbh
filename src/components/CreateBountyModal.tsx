@@ -106,16 +106,12 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
       ? (restrictSelfSubmit ? [currentUser.username] : [])
       : bannedUsers.map(u => u.username);
 
-    onCreateBounty({
+    const newBounty: Omit<Bounty, 'id' | 'submissions'> = {
       isFfa: isFfaMode,
       beatmap: metadata,
       giver: { id: currentUser.id, username: currentUser.username, avatarUrl: currentUser.avatarUrl },
       reward: { amount: isFfaMode ? 0 : finalRewardAmount, currency: isFfaMode ? 'FFA' : 'BP' },
       isDualReward: isFfaMode ? false : isDualMode,
-      rewardTier1: isFfaMode ? undefined : t1Amount,
-      rewardTier2: isFfaMode ? undefined : t2Amount,
-      instructionTier1: isFfaMode ? undefined : t1Instr,
-      instructionTier2: isFfaMode ? undefined : t2Instr,
       instructions: finalInstructions,
       rules,
       tags: isFfaMode ? ['FFA', metadata.status.toUpperCase(), ...tags.filter(Boolean)] : [metadata.status.toUpperCase(), ...tags.filter(Boolean)],
@@ -125,7 +121,16 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
       status: 'open',
       createdAt: new Date().toISOString(),
       views: 0,
-    });
+    };
+
+    if (!isFfaMode && isDualMode) {
+      if (t1Amount !== undefined) newBounty.rewardTier1 = t1Amount;
+      if (t2Amount !== undefined) newBounty.rewardTier2 = t2Amount;
+      if (t1Instr) newBounty.instructionTier1 = t1Instr;
+      if (t2Instr) newBounty.instructionTier2 = t2Instr;
+    }
+
+    onCreateBounty(newBounty);
     onClose();
   };
 
