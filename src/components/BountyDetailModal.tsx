@@ -28,8 +28,8 @@ export const BountyDetailModal: React.FC<BountyDetailModalProps> = ({
 }) => {
   const { activeRole } = useAuth();
   if (!bounty) return null;
-  const { beatmap, giver, reward, instructions, rules, tags } = bounty;
-  const isGiver = activeRole === 'bounty_giver' || currentUser.id === giver.id;
+  const isCreator = currentUser.id === giver.id;
+  const isGiver = bounty.isFfa ? isCreator : (isCreator || activeRole === 'bounty_giver');
   const isBanned = Boolean(
     (bounty.bannedHunters && bounty.bannedHunters.includes(currentUser.id)) ||
     (bounty.bannedUsernames && bounty.bannedUsernames.some(u => u.toLowerCase() === (currentUser.username || '').toLowerCase()))
