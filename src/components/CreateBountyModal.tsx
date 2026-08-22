@@ -213,198 +213,212 @@ export const CreateBountyModal: React.FC<CreateBountyModalProps> = ({
               </div>
             )}
 
-            {/* Dual Mode Toggle Banner */}
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              padding: '12px 14px', borderRadius: 'var(--radius)',
-              background: isDualMode ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-1)',
-              border: `1px solid ${isDualMode ? 'rgba(239, 68, 68, 0.3)' : 'var(--border)'}`,
-              transition: 'all 0.2s ease',
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                  padding: 6, borderRadius: 6,
-                  background: isDualMode ? 'rgba(239, 68, 68, 0.2)' : 'var(--bg)',
-                  color: isDualMode ? '#f87171' : 'var(--text-3)',
-                }}>
-                  <Layers size={16} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)' }}>
-                    Dual Reward & Instruction Mode
-                  </div>
-                  <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>
-                    {isDualMode ? 'ON (2 Hadiah BP: Merah & Hijau, 2 Instruksi)' : 'OFF (1 Hadiah BP: Kuning, 1 Instruksi)'}
-                  </div>
-                </div>
+            {isFfaMode ? (
+              <div className="form-group">
+                <label className="form-label">Hunter Instructions</label>
+                <textarea
+                  required rows={3}
+                  value={instructions} onChange={e => setInstructions(e.target.value)}
+                  placeholder="Describe community challenge rules or goals for this map…"
+                  className="form-input"
+                />
               </div>
-
-              {/* Custom Switch Toggle */}
-              <button
-                type="button"
-                onClick={() => setIsDualMode(prev => !prev)}
-                style={{
-                  padding: '5px 12px',
-                  borderRadius: 99,
-                  border: `1px solid ${isDualMode ? '#4ade80' : 'var(--border)'}`,
-                  background: isDualMode ? 'rgba(74, 222, 128, 0.2)' : 'var(--bg)',
-                  color: isDualMode ? '#4ade80' : 'var(--text-3)',
-                  fontSize: 11,
-                  fontWeight: 700,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-              >
-                <span style={{
-                  width: 8, height: 8, borderRadius: '50%',
-                  background: isDualMode ? '#4ade80' : 'var(--text-3)',
-                }} />
-                {isDualMode ? 'ON' : 'OFF'}
-              </button>
-            </div>
-
-            {/* SINGLE REWARD & INSTRUCTION FORM (If OFF) */}
-            {!isDualMode ? (
-              <>
-                {/* Single Reward */}
-                <div className="form-group">
-                  <label className="form-label"><Coins size={11} /> Reward (BP) - <span style={{ color: 'var(--gold)' }}>Single Tier (Kuning)</span></label>
-                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      required={!isDualMode}
-                      value={rewardAmount}
-                      onChange={handleRewardChange}
-                      className="form-input mono"
-                      style={{ paddingRight: 48, color: 'var(--gold)', fontWeight: 700 }}
-                    />
-                    <span style={{
-                      position: 'absolute',
-                      right: 12,
-                      fontSize: 12,
-                      fontWeight: 800,
-                      color: 'var(--gold)',
-                      fontFamily: 'var(--mono)',
-                      pointerEvents: 'none',
-                    }}>
-                      BP
-                    </span>
-                  </div>
-                </div>
-
-                {/* Single Instructions */}
-                <div className="form-group">
-                  <label className="form-label">Hunter Instructions</label>
-                  <textarea
-                    required={!isDualMode} rows={3}
-                    value={instructions} onChange={e => setInstructions(e.target.value)}
-                    placeholder="Describe exactly what hunters need to do…"
-                    className="form-input"
-                  />
-                </div>
-              </>
             ) : (
-              /* DUAL REWARD & INSTRUCTIONS FORM (If ON - Kiri Kanan Side-by-Side) */
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-                  {/* Left Column: Tier 1 (Red / Merah) */}
-                  <div style={{
-                    padding: 12, borderRadius: 'var(--radius)',
-                    border: '1px solid rgba(248, 113, 113, 0.4)',
-                    background: 'rgba(248, 113, 113, 0.05)',
-                    display: 'flex', flexDirection: 'column', gap: 10,
-                  }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#f87171', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f87171' }} />
-                      Instruksi 1 (Merah / Red)
-                    </div>
-
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: 10, color: '#f87171' }}>Hadiah BP 1 (Merah)</label>
-                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          required={isDualMode}
-                          value={rewardTier1}
-                          onChange={e => setRewardTier1(parseBpInput(e.target.value))}
-                          className="form-input mono"
-                          style={{ color: '#f87171', fontWeight: 700, paddingRight: 36, fontSize: 13 }}
-                        />
-                        <span style={{ position: 'absolute', right: 8, fontSize: 11, fontWeight: 800, color: '#f87171' }}>BP</span>
-                      </div>
-                    </div>
-
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: 10, color: 'var(--text-2)' }}>Instruksi 1</label>
-                      <textarea
-                        required={isDualMode} rows={3}
-                        value={instructionTier1}
-                        onChange={e => setInstructionTier1(e.target.value)}
-                        placeholder="e.g. miss 3x"
-                        className="form-input"
-                        style={{ fontSize: 12 }}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Right Column: Tier 2 (Green / Hijau) */}
-                  <div style={{
-                    padding: 12, borderRadius: 'var(--radius)',
-                    border: '1px solid rgba(74, 222, 128, 0.4)',
-                    background: 'rgba(74, 222, 128, 0.05)',
-                    display: 'flex', flexDirection: 'column', gap: 10,
-                  }}>
-                    <div style={{ fontSize: 11, fontWeight: 700, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 6 }}>
-                      <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80' }} />
-                      Instruksi 2 (Hijau / Green)
-                    </div>
-
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: 10, color: '#4ade80' }}>Hadiah BP 2 (Hijau)</label>
-                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          required={isDualMode}
-                          value={rewardTier2}
-                          onChange={e => setRewardTier2(parseBpInput(e.target.value))}
-                          className="form-input mono"
-                          style={{ color: '#4ade80', fontWeight: 700, paddingRight: 36, fontSize: 13 }}
-                        />
-                        <span style={{ position: 'absolute', right: 8, fontSize: 11, fontWeight: 800, color: '#4ade80' }}>BP</span>
-                      </div>
-                    </div>
-
-                    <div className="form-group" style={{ margin: 0 }}>
-                      <label className="form-label" style={{ fontSize: 10, color: 'var(--text-2)' }}>Instruksi 2</label>
-                      <textarea
-                        required={isDualMode} rows={3}
-                        value={instructionTier2}
-                        onChange={e => setInstructionTier2(e.target.value)}
-                        placeholder="e.g. ga miss"
-                        className="form-input"
-                        style={{ fontSize: 12 }}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Info Note regarding Max Pool Calculation */}
+              /* OFFICIAL MODE: Dual Mode Toggle & Single/Dual BP Reward Inputs */
+              <>
+                {/* Dual Mode Toggle Banner */}
                 <div style={{
-                  fontSize: 11, color: 'var(--gold)', background: 'rgba(234, 179, 8, 0.1)',
-                  padding: '8px 12px', borderRadius: 'var(--radius)', border: '1px solid rgba(234, 179, 8, 0.3)',
-                  display: 'flex', alignItems: 'center', gap: 6,
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '12px 14px', borderRadius: 'var(--radius)',
+                  background: isDualMode ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-1)',
+                  border: `1px solid ${isDualMode ? 'rgba(239, 68, 68, 0.3)' : 'var(--border)'}`,
+                  transition: 'all 0.2s ease',
                 }}>
-                  <Coins size={12} />
-                  <span>
-                    <strong>Total Pool BP requirement:</strong> Max reward value = <strong>{calculatedMaxPool} BP</strong> (diambil dari angka terbesar).
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{
+                      padding: 6, borderRadius: 6,
+                      background: isDualMode ? 'rgba(239, 68, 68, 0.2)' : 'var(--bg)',
+                      color: isDualMode ? '#f87171' : 'var(--text-3)',
+                    }}>
+                      <Layers size={16} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--text-1)' }}>
+                        Dual Reward & Instruction Mode
+                      </div>
+                      <div style={{ fontSize: 10, color: 'var(--text-3)', marginTop: 1 }}>
+                        {isDualMode ? 'ON (2 Hadiah BP: Merah & Hijau, 2 Instruksi)' : 'OFF (1 Hadiah BP: Kuning, 1 Instruksi)'}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Custom Switch Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setIsDualMode(prev => !prev)}
+                    style={{
+                      padding: '5px 12px',
+                      borderRadius: 99,
+                      border: `1px solid ${isDualMode ? '#4ade80' : 'var(--border)'}`,
+                      background: isDualMode ? 'rgba(74, 222, 128, 0.2)' : 'var(--bg)',
+                      color: isDualMode ? '#4ade80' : 'var(--text-3)',
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <span style={{
+                      width: 8, height: 8, borderRadius: '50%',
+                      background: isDualMode ? '#4ade80' : 'var(--text-3)',
+                    }} />
+                    {isDualMode ? 'ON' : 'OFF'}
+                  </button>
                 </div>
-              </div>
+
+                {/* SINGLE REWARD & INSTRUCTION FORM (If OFF) */}
+                {!isDualMode ? (
+                  <>
+                    {/* Single Reward */}
+                    <div className="form-group">
+                      <label className="form-label"><Coins size={11} /> Reward (BP) - <span style={{ color: 'var(--gold)' }}>Single Tier (Kuning)</span></label>
+                      <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          required={!isDualMode}
+                          value={rewardAmount}
+                          onChange={handleRewardChange}
+                          className="form-input mono"
+                          style={{ paddingRight: 48, color: 'var(--gold)', fontWeight: 700 }}
+                        />
+                        <span style={{
+                          position: 'absolute',
+                          right: 12,
+                          fontSize: 12,
+                          fontWeight: 800,
+                          color: 'var(--gold)',
+                          fontFamily: 'var(--mono)',
+                          pointerEvents: 'none',
+                        }}>
+                          BP
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Single Instructions */}
+                    <div className="form-group">
+                      <label className="form-label">Hunter Instructions</label>
+                      <textarea
+                        required={!isDualMode} rows={3}
+                        value={instructions} onChange={e => setInstructions(e.target.value)}
+                        placeholder="Describe exactly what hunters need to do…"
+                        className="form-input"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  /* DUAL REWARD & INSTRUCTIONS FORM (If ON - Kiri Kanan Side-by-Side) */
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+                      {/* Left Column: Tier 1 (Red / Merah) */}
+                      <div style={{
+                        padding: 12, borderRadius: 'var(--radius)',
+                        border: '1px solid rgba(248, 113, 113, 0.4)',
+                        background: 'rgba(248, 113, 113, 0.05)',
+                        display: 'flex', flexDirection: 'column', gap: 10,
+                      }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#f87171', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f87171' }} />
+                          Instruksi 1 (Merah / Red)
+                        </div>
+
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ fontSize: 10, color: '#f87171' }}>Hadiah BP 1 (Merah)</label>
+                          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              required={isDualMode}
+                              value={rewardTier1}
+                              onChange={e => setRewardTier1(parseBpInput(e.target.value))}
+                              className="form-input mono"
+                              style={{ color: '#f87171', fontWeight: 700, paddingRight: 36, fontSize: 13 }}
+                            />
+                            <span style={{ position: 'absolute', right: 8, fontSize: 11, fontWeight: 800, color: '#f87171' }}>BP</span>
+                          </div>
+                        </div>
+
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ fontSize: 10, color: 'var(--text-2)' }}>Instruksi 1</label>
+                          <textarea
+                            required={isDualMode} rows={3}
+                            value={instructionTier1}
+                            onChange={e => setInstructionTier1(e.target.value)}
+                            placeholder="e.g. miss 3x"
+                            className="form-input"
+                            style={{ fontSize: 12 }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Right Column: Tier 2 (Green / Hijau) */}
+                      <div style={{
+                        padding: 12, borderRadius: 'var(--radius)',
+                        border: '1px solid rgba(74, 222, 128, 0.4)',
+                        background: 'rgba(74, 222, 128, 0.05)',
+                        display: 'flex', flexDirection: 'column', gap: 10,
+                      }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: '#4ade80', display: 'flex', alignItems: 'center', gap: 6 }}>
+                          <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80' }} />
+                          Instruksi 2 (Hijau / Green)
+                        </div>
+
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ fontSize: 10, color: '#4ade80' }}>Hadiah BP 2 (Hijau)</label>
+                          <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              required={isDualMode}
+                              value={rewardTier2}
+                              onChange={e => setRewardTier2(parseBpInput(e.target.value))}
+                              className="form-input mono"
+                              style={{ color: '#4ade80', fontWeight: 700, paddingRight: 36, fontSize: 13 }}
+                            />
+                            <span style={{ position: 'absolute', right: 8, fontSize: 11, fontWeight: 800, color: '#4ade80' }}>BP</span>
+                          </div>
+                        </div>
+
+                        <div className="form-group" style={{ margin: 0 }}>
+                          <label className="form-label" style={{ fontSize: 10, color: 'var(--text-2)' }}>Instruksi 2</label>
+                          <textarea
+                            required={isDualMode} rows={3}
+                            value={instructionTier2}
+                            onChange={e => setInstructionTier2(e.target.value)}
+                            placeholder="e.g. ga miss"
+                            className="form-input"
+                            style={{ fontSize: 12 }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div style={{
+                      fontSize: 11, color: 'var(--gold)', background: 'rgba(234, 179, 8, 0.1)',
+                      padding: '8px 12px', borderRadius: 'var(--radius)', border: '1px solid rgba(234, 179, 8, 0.3)',
+                      display: 'flex', alignItems: 'center', gap: 6,
+                    }}>
+                      <Coins size={12} />
+                      <span>
+                        <strong>Total Pool BP requirement:</strong> Max reward value = <strong>{calculatedMaxPool} BP</strong> (diambil dari angka terbesar).
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </>
             )}
 
             {/* Rules */}
